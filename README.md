@@ -25,6 +25,17 @@ uninstall them, and manage your licence keys.
   adds Start menu and desktop shortcuts and an Apps list entry with an uninstaller, and updates itself
   from its own signed releases.
 
+- **Run from the website.** On rotaidem.com, Admin → RotaHub sets what every copy shows, read from
+  `/api/hub` at start and on Refresh: a message bar (normal or warning, with an optional link), the
+  lowest RotaHub version allowed (older copies show a bar asking to update), the Help link, and per
+  product: hide it, pin it to the top, or give it a release file and licence details (licence product
+  ids, licence folder, key prefix). That way a new product can come to RotaHub without a new RotaHub.
+  The settings are checked in the app too: a release file must be https and its release must still be
+  signed with the Rotaidem release key and name the product, a licence folder is one plain name, and
+  links are https or pages on the site. The website can never set an exe to run (`LegacyExe` stays in
+  `HubCatalog.cs`). A product the website adds this way has the website product id as its RotaHub id,
+  so sign its release with `-Product <website id>`.
+
 ## Layout
 
 | Path | What |

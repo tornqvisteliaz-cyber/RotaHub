@@ -1,0 +1,87 @@
+using System.Text.RegularExpressions;
+
+namespace RotaHub.Core;
+
+/// <summary>A message for everyone using RotaHub, shown as a bar at the top (Admin → RotaHub on the website).</summary>
+public sealed record HubNotice(string Text, bool Warning, string Link);
+
+/// <summary>What the website sets for one product in RotaHub (Admin → RotaHub → Products in RotaHub).</summary>
+public sealed record HubProductSettings(string Id, bool Hidden, bool Featured, string? ManifestUrl,
+    IReadOnlyList<string> LicenceIds, string? LicenceStore, string? KeyPrefix);
+
+/// <summary>
+/// RotaHub's settings from rotaidem.com (/api/hub): the message bar, the lowest RotaHub version that
+/// should be used, the help link, and per-product settings. Read again on every refresh.
+/// Everything is checked here too, not only on the website: a release file must be https and is
+/// signature-checked before anything is installed from it, and a licence folder is one plain name,
+/// so a changed setting can never point RotaHub outside %LOCALAPPDATA%\Rotaidem.
+/// </summary>
+public sealed class HubConfig
+{
+    public static readonly HubConfig Empty = new(null, null, "", Array.Empty<HubProductSettings>());
+
+    private static readonly Regex Id = new("^[a-z0-9][a-z0-9._-]{0,59}$");
+    private static readonly Regex Prefix = new("^[A-Z0-9]{2,8}$");
+    private static readonly Regex VersionText = new(@"^\d{1,4}\.\d{1,4}\.\d{1,4}$");
+
+    public HubConfig(HubNotice? notice, Version? minVersion, string helpUrl, IReadOnlyList<HubProductSettings> products)
+    {
+        Notice = notice;
+        MinVersion = minVersion;
+        HelpUrl = helpUrl;
+        Products = products;
+    }
+
+    public HubNotice? Notice { get; }
+
+    /// <summary>Copies older than this ask to be updated; null allows every version.</summary>
+    public Version? MinVersion { get; }
+
+    /// <summary>The Help link in the menu; empty for the website's support page.</summary>
+    public string HelpUrl { get; }
+
+    public IReadOnlyList<HubProductSettings> Products { get; }
+
+    public HubProductSettings? For(string productId) =>
+        Products.FirstOrDefault(p => string.Equals(p.Id, productId, StringComparison.OrdinalIgnoreCase));
+
+    public bool TooOld(Version current) => MinVersion != null && HubRelease.Normalize(current) < MinVersion;
+
+    /// <param name="absolute">Turns a page on the site ("/downloads") into a full address.</param>
+    public static HubConfig Read(JsonNode data, Func<string, string> absolute)
+    {
+        var m = data["message"];
+        var text = m["text"].Str().Trim();
+        var notice = m["enabled"].Bool() && text.Length > 0
+            ? new HubNotice(text.Length > 300 ? text.Substring(0, 300) : text, m["level"].Str() == "warning", Link(m["link"].Str(), absolute))
+            : null;
+        var min = data["min_version"].Str().Trim();
+        var products = new List<HubProductSettings>();
+        foreach (var p in data["products"].Items.Take(60))
+        {
+            var id = p["id"].Str().Trim().ToLowerInvariant();
+            if (!Id.IsMatch(id) || products.Any(x => x.Id == id))
+                continue;
+            var manifest = p["manifest_url"].Str().Trim();
+            var store = p["licence_store"].Str().Trim().ToLowerInvariant();
+            var prefix = p["key_prefix"].Str().Trim().ToUpperInvariant();
+            products.Add(new HubProductSettings(id, p["hidden"].Bool(), p["featured"].Bool(),
+                manifest.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && Uri.IsWellFormedUriString(manifest, UriKind.Absolute) ? manifest : null,
+                p["licence_ids"].Strings.Select(s => s.Trim().ToLowerInvariant()).Where(s => Id.IsMatch(s)).Take(5).ToList(),
+                Id.IsMatch(store) ? store : null,
+                Prefix.IsMatch(prefix) ? prefix : null));
+        }
+        return new HubConfig(notice, VersionText.IsMatch(min) ? Version.Parse(min) : null, Link(data["help_url"].Str(), absolute), products);
+    }
+
+    /// <summary>https:// addresses and pages on the site only; anything else (file:, javascript:, a program) is dropped.</summary>
+    private static string Link(string value, Func<string, string> absolute)
+    {
+        var link = value.Trim();
+        if (link.StartsWith("https://", StringComparison.OrdinalIgnoreCase) && Uri.IsWellFormedUriString(link, UriKind.Absolute))
+            return link;
+        if (link.StartsWith("/") && !link.StartsWith("//") && !link.Contains("\\"))
+            return absolute(link);
+        return "";
+    }
+}

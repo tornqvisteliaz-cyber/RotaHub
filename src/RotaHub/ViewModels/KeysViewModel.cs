@@ -75,7 +75,7 @@ public sealed class KeysViewModel : Observable
             Show("That is not a licence key. It looks like HPRO-XXXX-XXXX-XXXX.", Tone.Danger);
             return;
         }
-        var product = HubCatalog.All.FirstOrDefault(p => p.KeyPrefix.Length > 0 && key.StartsWith(p.KeyPrefix + "-", StringComparison.Ordinal));
+        var product = HubCatalog.Known.FirstOrDefault(p => p.KeyPrefix.Length > 0 && key.StartsWith(p.KeyPrefix + "-", StringComparison.Ordinal));
         Busy = true;
         Show("Checking the key…", Tone.Neutral);
         try

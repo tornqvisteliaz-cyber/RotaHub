@@ -149,6 +149,19 @@ public sealed class RotaidemApi
         return ReadLicence(data["license"]);
     }
 
+    /// <summary>RotaHub's settings from the website (Admin → RotaHub); empty from a website that has none yet.</summary>
+    public async Task<HubConfig> HubConfigAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return HubConfig.Read(await SendAsync(HttpMethod.Get, "/api/hub", null, ct).ConfigureAwait(false), Absolute);
+        }
+        catch (ApiException ex) when (ex.Status == 404)
+        {
+            return HubConfig.Empty;
+        }
+    }
+
     /// <summary>The product's download link from the website (counts the download; licence-only products need a key on the account).</summary>
     public async Task<string> DownloadUrlAsync(string productId, CancellationToken ct = default)
     {

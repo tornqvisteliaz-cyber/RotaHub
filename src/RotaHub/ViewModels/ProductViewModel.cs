@@ -46,7 +46,7 @@ public sealed class ProductViewModel : Observable
     }
 
     public SiteProduct Site => _site;
-    public HubProduct Hub { get; }
+    public HubProduct Hub { get; private set; }
 
     public Command OpenCommand { get; }
     public Command BackCommand { get; }
@@ -189,6 +189,8 @@ public sealed class ProductViewModel : Observable
     public void Update(SiteProduct site)
     {
         _site = site;
+        if (!Busy)
+            Hub = HubCatalog.For(site); // the website's RotaHub settings may have changed
         Raise(nameof(Site), nameof(Name), nameof(Tagline), nameof(Kicker), nameof(Description), nameof(Features), nameof(Changelog), nameof(Price));
         Refresh();
         _ = LoadPictureAsync();

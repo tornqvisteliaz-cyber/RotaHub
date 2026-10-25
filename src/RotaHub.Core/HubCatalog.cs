@@ -36,12 +36,41 @@ public static class HubCatalog
         "rotahub", "RotaHub", Array.Empty<string>(), "rotahub", "",
         "https://github.com/tornqvisteliaz-cyber/rotahub/releases/latest/download/rotahub.jws", null);
 
+    /// <summary>
+    /// Settings from the website (Admin → RotaHub), read on every refresh. They can point a product at
+    /// another signed release file or add the licence details of a product RotaHub does not know yet.
+    /// They never set an exe to run: LegacyExe stays built in.
+    /// </summary>
+    public static HubConfig Config { get; set; } = HubConfig.Empty;
+
     /// <summary>The catalogue entry for a website product, or a plain one (installed through its download) for anything new.</summary>
-    public static HubProduct For(SiteProduct product) =>
-        All.FirstOrDefault(p => p.Matches(product.Id)) ?? new HubProduct(product.Id, product.Name, Array.Empty<string>(), product.Id, "", null, null);
+    public static HubProduct For(SiteProduct product)
+    {
+        var builtIn = All.FirstOrDefault(p => p.Matches(product.Id));
+        var basis = builtIn ?? new HubProduct(product.Id, product.Name, Array.Empty<string>(), product.Id, "", null, null);
+        var settings = Config.For(product.Id) ?? (builtIn != null ? SettingsFor(builtIn) : null);
+        return settings == null ? basis : Apply(basis, settings);
+    }
+
+    /// <summary>The built-in products plus those the website gives licence details for.</summary>
+    public static IEnumerable<HubProduct> Known =>
+        All.Select(p => SettingsFor(p) is { } s ? Apply(p, s) : p)
+            .Concat(Config.Products.Where(s => s.LicenceIds.Count > 0 && !All.Any(p => p.Matches(s.Id)))
+                .Select(s => Apply(new HubProduct(s.Id, s.Id, Array.Empty<string>(), s.Id, "", null, null), s)));
 
     /// <summary>The catalogue entry a licence key belongs to.</summary>
-    public static HubProduct? ForLicence(AccountLicence licence) => All.FirstOrDefault(p => p.Matches(licence.ProductId));
+    public static HubProduct? ForLicence(AccountLicence licence) => Known.FirstOrDefault(p => p.Matches(licence.ProductId));
+
+    private static HubProductSettings? SettingsFor(HubProduct product) =>
+        Config.For(product.Id) ?? Config.Products.FirstOrDefault(s => product.Matches(s.Id));
+
+    internal static HubProduct Apply(HubProduct product, HubProductSettings settings) => product with
+    {
+        ManifestUrl = settings.ManifestUrl ?? product.ManifestUrl,
+        LicenceProductIds = settings.LicenceIds.Count > 0 ? settings.LicenceIds.ToArray() : product.LicenceProductIds,
+        LicenceStore = settings.LicenceStore ?? product.LicenceStore,
+        KeyPrefix = settings.KeyPrefix ?? product.KeyPrefix,
+    };
 
     public static string Expand(string path) => Environment.ExpandEnvironmentVariables(path);
 }
