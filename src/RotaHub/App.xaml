@@ -1,0 +1,18 @@
+<Application x:Class="RotaHub.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:RotaHub"
+             ShutdownMode="OnMainWindowClose">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <local:BoolToVisibility x:Key="Show" />
+            <local:BoolToVisibility x:Key="Hide" Invert="True" />
+            <local:Upper x:Key="Upper" />
+            <local:ToneBrush x:Key="ToneInk" />
+            <local:ToneBrush x:Key="ToneSoft" Soft="True" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

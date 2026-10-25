@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11: no runtime to bundle, one small exe. -->
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>RotaHub</AssemblyName>
+    <RootNamespace>RotaHub</RootNamespace>
+    <ApplicationIcon>Assets\RotaHub.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- WPF projects leave System.IO out of the implicit usings (Path clashes with Shapes.Path);
+         the shared Core and Licensing sources expect it. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Compiled in rather than referenced, so RotaHub stays a single exe. -->
+    <Compile Include="..\RotaHub.Core\*.cs" Link="Core\%(Filename)%(Extension)" />
+    <Compile Include="..\Rotaidem.Licensing\*.cs" Link="Licensing\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- rotaidem.com's licence public key: activations are trusted only when signed by the website. -->
+    <EmbeddedResource Include="..\..\packaging\licence-public-key.json" LogicalName="RotaHub.LicencePublicKey.json" />
+    <!-- The Rotaidem release key's public half (the UPDATE_SIGNING_KEY secret in CI signs with the private half). -->
+    <EmbeddedResource Include="..\..\packaging\release-public-key.json" LogicalName="RotaHub.ReleasePublicKey.json" />
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Resource Include="Assets\Images\*.jpg" />
+    <Resource Include="Assets\RotaHub.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <!-- System.Web only because the XAML compiler loads System.Web.Extensions' dependencies. -->
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

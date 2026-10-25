@@ -1,0 +1,86 @@
+<Window x:Class="RotaHub.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:RotaHub.ViewModels"
+        xmlns:v="clr-namespace:RotaHub.Views"
+        Title="RotaHub" Width="1240" Height="800" MinWidth="1000" MinHeight="660"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Bg}"
+        FontFamily="{StaticResource Plex}" Foreground="{StaticResource Text}"
+        TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
+        Icon="pack://application:,,,/Assets/RotaHub.ico">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="38" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type vm:LoginViewModel}">
+            <v:LoginView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ShellViewModel}">
+            <v:ShellView />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Border x:Name="Frame" BorderBrush="{StaticResource Line}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="38" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Title bar, the site's header: navy, logo, tracked uppercase brand. -->
+            <Grid Background="{StaticResource Navy}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Path Style="{StaticResource Logo}" Width="22" Height="16" />
+                    <TextBlock Text="ROTAHUB" Margin="10,0,0,0" Foreground="{StaticResource White}" FontWeight="SemiBold" FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="by Rotaidem" Margin="10,1,0,0" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource WindowBtn}" Content="&#xE921;" Click="Minimize" ToolTip="Minimise" />
+                    <Button x:Name="MaxButton" Style="{StaticResource WindowBtn}" Content="&#xE922;" Click="Maximize" ToolTip="Maximise" />
+                    <Button Style="{StaticResource CloseBtn}" Content="&#xE8BB;" Click="CloseWindow" ToolTip="Close" />
+                </StackPanel>
+            </Grid>
+
+            <ContentControl Grid.Row="1" Content="{Binding Screen}" Focusable="False" />
+
+            <!-- Splash while the first screen is chosen. -->
+            <Grid Grid.Row="1" Background="{StaticResource Bg}" Visibility="{Binding Screen, Converter={StaticResource Hide}}">
+                <Path Style="{StaticResource Logo}" Width="64" Height="48" Opacity="0.6" />
+            </Grid>
+
+            <!-- Dialog over everything. -->
+            <Grid Grid.Row="1" Visibility="{Binding Dialog, Converter={StaticResource Show}}" Background="#B30B0C0E">
+                <Border Style="{StaticResource Box}" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        BorderThickness="0,2,0,0" BorderBrush="{StaticResource Ink}" Padding="32,28" DataContext="{Binding Dialog}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" Margin="0,0,0,12" />
+                        <TextBlock Text="{Binding Message}" Style="{StaticResource Body}" />
+                        <CheckBox Style="{StaticResource Toggle}" Margin="0,20,0,0" IsChecked="{Binding OptionChecked}"
+                                  Visibility="{Binding Option, Converter={StaticResource Show}}">
+                            <TextBlock Text="{Binding Option}" Style="{StaticResource Body}" FontSize="14" />
+                        </CheckBox>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,28,0,0">
+                            <Button Content="{Binding Cancel}" Command="{Binding CancelCommand}" Style="{StaticResource BtnGhost}" Margin="0,0,10,0"
+                                    Visibility="{Binding HasCancel, Converter={StaticResource Show}}" IsCancel="True" />
+                            <Button Content="{Binding Accept}" Command="{Binding AcceptCommand}" IsDefault="True">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource Btn}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Danger}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Danger}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource Danger}" />
+                                                <Setter Property="Foreground" Value="{StaticResource White}" />
+                                                <Setter Property="Tag" Value="#F0666A" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

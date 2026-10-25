@@ -1,0 +1,15 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Company>Rotaidem</Company>
+    <Authors>Rotaidem</Authors>
+    <Product>RotaHub</Product>
+    <Copyright>Rotaidem</Copyright>
+    <Version>0.1.0</Version>
+    <!-- Release builds: CI sets RH_VERSION from the tag (v0.2.0 -> 0.2.0); self-update compares against it. -->
+    <Version Condition="'$(RH_VERSION)' != ''">$(RH_VERSION)</Version>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>

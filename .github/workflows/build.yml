@@ -1,0 +1,73 @@
+name: Build RotaHub
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write  # publish releases
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Version from the tag
+        # A tag like v0.2.0 builds RotaHub 0.2.0; its self-update compares against this number.
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v0.2.0, not $tag." }
+          "RH_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Licence public key still matches rotaidem.com
+        # RotaHub trusts only licence answers signed with this key. If the website's key changed,
+        # stop rather than ship a RotaHub that refuses every licence.
+        shell: pwsh
+        run: |
+          $live = (Invoke-RestMethod 'https://rotaidem.com/api/licenses/jwks.json' -TimeoutSec 60).keys[0].n
+          $built = (Get-Content packaging/licence-public-key.json -Raw | ConvertFrom-Json).n
+          if ($live -ne $built) { throw 'packaging/licence-public-key.json differs from rotaidem.com/api/licenses/jwks.json. Update it.' }
+      - name: Tests
+        run: dotnet test tests/RotaHub.Tests/RotaHub.Tests.csproj -c Release
+      - name: Build
+        shell: pwsh
+        run: |
+          dotnet build src/RotaHub/RotaHub.csproj -c Release
+          if ($LASTEXITCODE -ne 0) { throw "Build failed." }
+          New-Item -ItemType Directory -Force -Path publish/pkg/app | Out-Null
+          Copy-Item src/RotaHub/bin/Release/net48/RotaHub.exe publish/
+          Copy-Item src/RotaHub/bin/Release/net48/RotaHub.exe publish/pkg/app/
+          # The self-update package: app\RotaHub.exe, like every RotaHub package.
+          Compress-Archive -Path publish/pkg/* -DestinationPath publish/RotaHub-package.zip -Force
+          Write-Host ("RotaHub.exe is {0:N1} MB" -f ((Get-Item publish/RotaHub.exe).Length / 1MB))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RotaHub
+          path: publish/RotaHub.exe
+      - name: Sign the release manifest
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/RotaHub-package.zip"
+          & packaging/New-HubManifest.ps1 -Product rotahub -Name RotaHub -Version $env:RH_VERSION `
+            -Package publish/RotaHub-package.zip -Url $url -Out publish/rotahub.jws -AppExe RotaHub.exe -Processes RotaHub
+      # RotaHub.exe on the Releases page is what people download; RotaHub-package.zip and
+      # rotahub.jws are what installed copies update from (.../releases/latest/download/rotahub.jws).
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release create $tag publish/RotaHub.exe publish/RotaHub-package.zip publish/rotahub.jws --title "RotaHub $env:RH_VERSION" --notes "RotaHub $env:RH_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw "Could not publish the release." }

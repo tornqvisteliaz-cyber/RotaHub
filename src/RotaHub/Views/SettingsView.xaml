@@ -1,0 +1,147 @@
+<UserControl x:Class="RotaHub.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="48,40,48,48" MaxWidth="860" HorizontalAlignment="Left">
+            <TextBlock Text="ROTAHUB" Style="{StaticResource Kicker}" Margin="0,0,0,10" />
+            <TextBlock Text="Settings" Style="{StaticResource H1}" Margin="0,0,0,36" />
+
+            <!-- Simulators -->
+            <TextBlock Text="Simulators" Style="{StaticResource H2}" Margin="0,0,0,6" />
+            <TextBlock Style="{StaticResource Body}" Foreground="{StaticResource Muted}" Margin="0,0,0,16"
+                       Text="Where RotaHub links in-game packages. It reads each simulator's own settings (Steam or Microsoft Store); choose a folder only if it guessed wrong." />
+            <ItemsControl ItemsSource="{Binding Sims}" Margin="0,0,0,40">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,18">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <TextBlock Text="{Binding Title}" Foreground="{StaticResource Ink}" FontWeight="SemiBold" FontSize="15" />
+                                        <Border Margin="12,0,0,0" Padding="8,2" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{StaticResource OkSoft}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Found}" Value="False">
+                                                            <Setter Property="Background" Value="{StaticResource NavyHover}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Edition}" FontSize="12" FontWeight="Medium">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Found}" Value="False">
+                                                                <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Community}" Style="{StaticResource Small}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0">
+                                    <Button Content="Open" Style="{StaticResource Sm}" Command="{Binding OpenCommand}" Margin="0,0,8,0"
+                                            Visibility="{Binding Found, Converter={StaticResource Show}}" />
+                                    <Button Content="Choose folder" Style="{StaticResource Sm}" Command="{Binding ChooseCommand}" Margin="0,0,8,0" />
+                                    <Button Content="Detect again" Style="{StaticResource Sm}" Command="{Binding ResetCommand}"
+                                            Visibility="{Binding Chosen, Converter={StaticResource Show}}" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Library -->
+            <TextBlock Text="Library" Style="{StaticResource H2}" Margin="0,0,0,6" />
+            <TextBlock Style="{StaticResource Body}" Foreground="{StaticResource Muted}" Margin="0,0,0,16"
+                       Text="Where products are unpacked. Any local drive works; the simulator sees them through links in its Community folder." />
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,18" Margin="0,0,0,40">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Library}" Foreground="{StaticResource Ink}" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="24,0,0,0">
+                        <Button Content="Open" Style="{StaticResource Sm}" Command="{Binding OpenLibraryCommand}" Margin="0,0,8,0" />
+                        <Button Content="Change" Style="{StaticResource Sm}" Command="{Binding ChangeLibraryCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Preferences -->
+            <TextBlock Text="Preferences" Style="{StaticResource H2}" Margin="0,0,0,10" />
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,16">
+                <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding LaunchAfterInstall}">
+                    <StackPanel>
+                        <TextBlock Text="Open products after installing" Foreground="{StaticResource Ink}" FontSize="15" />
+                        <TextBlock Text="Starts the program as soon as a first install is done." Style="{StaticResource Small}" />
+                    </StackPanel>
+                </CheckBox>
+            </Border>
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,16" Margin="0,0,0,40">
+                <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding DesktopShortcuts}">
+                    <StackPanel>
+                        <TextBlock Text="Desktop shortcuts" Foreground="{StaticResource Ink}" FontSize="15" />
+                        <TextBlock Text="Products always get a Start menu shortcut; this adds one on the desktop too." Style="{StaticResource Small}" />
+                    </StackPanel>
+                </CheckBox>
+            </Border>
+
+            <!-- Account -->
+            <TextBlock Text="Account" Style="{StaticResource H2}" Margin="0,0,0,10" />
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,18" Margin="0,0,0,40">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="{Binding Shell.Account.Name}" Foreground="{StaticResource Ink}" FontWeight="SemiBold" FontSize="15" />
+                        <TextBlock Text="{Binding Shell.Account.Email}" Style="{StaticResource Small}" FontSize="14" />
+                        <TextBlock Style="{StaticResource Small}" Margin="0,8,0,0"
+                                   Text="RotaHub is one of your logins on rotaidem.com. End it there under Account, or log out here." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0">
+                        <Button Content="Manage on rotaidem.com" Style="{StaticResource Sm}" Command="{Binding DevicesCommand}" Margin="0,0,8,0" />
+                        <Button Content="Log out" Style="{StaticResource Sm}" Command="{Binding Shell.SignOutCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- About -->
+            <TextBlock Text="About RotaHub" Style="{StaticResource H2}" Margin="0,0,0,10" />
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,18">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Style="{StaticResource Logo}" Width="30" Height="22" Margin="0,0,14,0" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Shell.Version}" Foreground="{StaticResource Ink}" FontWeight="SemiBold" FontSize="15" />
+                            <TextBlock Text="By Rotaidem. Updates itself when a new version is out." Style="{StaticResource Small}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0">
+                        <Button Content="Check for updates" Style="{StaticResource Sm}" Command="{Binding CheckUpdatesCommand}" Margin="0,0,8,0" />
+                        <Button Content="Log file" Style="{StaticResource Sm}" Command="{Binding LogCommand}" Margin="0,0,8,0" />
+                        <Button Content="Uninstall RotaHub" Style="{StaticResource SmDanger}" Command="{Binding UninstallCommand}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

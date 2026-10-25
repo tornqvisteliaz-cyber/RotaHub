@@ -1,0 +1,218 @@
+<UserControl x:Class="RotaHub.Views.ProductView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <!-- Hero, like the product page on rotaidem.com: photo, dark gradient from the left, text bottom-left. -->
+            <Grid Height="420" ClipToBounds="True" Background="{StaticResource Navy}">
+                <Image Source="{Binding Picture}" Stretch="UniformToFill" />
+                <Rectangle>
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop Color="#D90B0C0E" Offset="0" />
+                            <GradientStop Color="#660B0C0E" Offset="0.6" />
+                            <GradientStop Color="#260B0C0E" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+                <Rectangle Height="120" VerticalAlignment="Bottom">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#00111315" Offset="0" />
+                            <GradientStop Color="#99111315" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <Button Style="{StaticResource BtnHeroGhost}" Command="{Binding BackCommand}" HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Margin="48,28,0,0" Padding="12,7" FontSize="14">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72B;" Style="{StaticResource Icon}" FontSize="12" Margin="0,0,8,0" />
+                        <TextBlock Text="Library" />
+                    </StackPanel>
+                </Button>
+
+                <StackPanel VerticalAlignment="Bottom" Margin="48,0,48,44" MaxWidth="760" HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <TextBlock Text="{Binding Kicker, Converter={StaticResource Upper}}" Style="{StaticResource Kicker}" VerticalAlignment="Center" />
+                        <Border Margin="14,0,0,0" Padding="9,3" Background="{Binding BadgeTone, Converter={StaticResource ToneSoft}}">
+                            <TextBlock Text="{Binding Badge}" FontSize="12" FontWeight="Medium" Foreground="{Binding BadgeTone, Converter={StaticResource ToneInk}}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource H1}" FontSize="50" Foreground="{StaticResource White}" Margin="0,0,0,10" />
+                    <TextBlock Text="{Binding Tagline}" Style="{StaticResource Lead}" FontSize="18" Foreground="{StaticResource HeroText}"
+                               Visibility="{Binding Tagline, Converter={StaticResource Show}}" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,28,0,0">
+                        <Button Command="{Binding PrimaryCommand}" Style="{StaticResource BtnLight}" Padding="26,14" FontSize="16" MinWidth="200">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding PrimaryIcon}" Style="{StaticResource Icon}" FontSize="15" Margin="0,0,10,0" />
+                                <TextBlock Text="{Binding PrimaryText}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Content="{Binding Price}" ContentStringFormat="Buy · {0}" Command="{Binding BuyCommand}" Style="{StaticResource BtnHeroGhost}"
+                                Padding="22,14" FontSize="16" Margin="12,0,0,0" Visibility="{Binding ShowBuy, Converter={StaticResource Show}}" />
+                        <Button Command="{Binding WebsiteCommand}" Style="{StaticResource BtnHeroGhost}" Padding="22,14" FontSize="16" Margin="12,0,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Product page" />
+                                <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="12" Margin="8,1,0,0" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Progress while installing -->
+                    <StackPanel Width="440" HorizontalAlignment="Left" Margin="0,22,0,0" Visibility="{Binding Busy, Converter={StaticResource Show}}">
+                        <ProgressBar Value="{Binding Progress, Mode=OneWay}" IsIndeterminate="{Binding Indeterminate}" />
+                        <Grid Margin="0,8,0,0">
+                            <TextBlock Text="{Binding Step}" Foreground="{StaticResource White}" FontSize="13" FontWeight="Medium" />
+                            <TextBlock Text="{Binding Detail}" HorizontalAlignment="Right" Foreground="{StaticResource HeroText}" FontSize="13" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- Body: about + what's new on the left, this PC on the right. -->
+            <Grid Margin="48,40,48,56">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="48" />
+                    <ColumnDefinition Width="360" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <!-- Repair / notes from the last install -->
+                    <Border Background="{StaticResource WarnSoft}" BorderBrush="{StaticResource Warn}" BorderThickness="3,0,0,0" Padding="18,14" Margin="0,0,0,28"
+                            Visibility="{Binding NeedsRepair, Converter={StaticResource Show}}">
+                        <StackPanel>
+                            <TextBlock Text="This install needs a repair" Foreground="{StaticResource Ink}" FontWeight="SemiBold" Margin="0,0,0,6" />
+                            <ItemsControl ItemsSource="{Binding Problems}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" Style="{StaticResource Body}" FontSize="14" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Notes}" Margin="0,0,0,12">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource InfoSoft}" BorderBrush="{StaticResource Info}" BorderThickness="3,0,0,0" Padding="18,14" Margin="0,0,0,16">
+                                    <TextBlock Text="{Binding}" Style="{StaticResource Body}" FontSize="14" Foreground="{StaticResource Ink}" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="About" Style="{StaticResource H2}" Margin="0,0,0,14" />
+                    <TextBlock Text="{Binding Description}" Style="{StaticResource Body}" FontSize="16" LineHeight="27" Margin="0,0,0,8"
+                               Visibility="{Binding Description, Converter={StaticResource Show}}" />
+                    <TextBlock Text="The product description on rotaidem.com is coming soon." Style="{StaticResource Body}" Foreground="{StaticResource Muted}"
+                               Visibility="{Binding Description, Converter={StaticResource Hide}}" />
+
+                    <ItemsControl ItemsSource="{Binding Features}" Margin="0,18,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,14">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Rectangle Width="6" Height="6" Fill="{StaticResource Accent}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding}" Style="{StaticResource Body}" Foreground="{StaticResource Ink}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <StackPanel Margin="0,40,0,0" Visibility="{Binding HasChangelog, Converter={StaticResource Show}}">
+                        <TextBlock Text="What's new" Style="{StaticResource H2}" Margin="0,0,0,14" />
+                        <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,18" Visibility="{Binding ReleaseNotes, Converter={StaticResource Show}}">
+                            <TextBlock Text="{Binding ReleaseNotes}" Style="{StaticResource Body}" />
+                        </Border>
+                        <ItemsControl ItemsSource="{Binding Changelog}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,20">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="160" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Version}" Foreground="{StaticResource Ink}" FontWeight="SemiBold" FontSize="15" />
+                                                <TextBlock Text="{Binding Date}" Style="{StaticResource Small}" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{Binding Notes}" Style="{StaticResource Body}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- This PC -->
+                <StackPanel Grid.Column="2">
+                    <Border Style="{StaticResource Box}" BorderThickness="1,2,1,1" BorderBrush="{StaticResource Line}" Padding="24">
+                        <StackPanel>
+                            <TextBlock Text="ON THIS PC" Style="{StaticResource Kicker}" Margin="0,0,0,16" />
+
+                            <TextBlock Text="Installed" Style="{StaticResource Small}" />
+                            <TextBlock Text="{Binding InstalledText}" Foreground="{StaticResource Ink}" FontSize="15" FontWeight="Medium" Margin="0,2,0,14" TextWrapping="Wrap" />
+
+                            <TextBlock Text="Latest release" Style="{StaticResource Small}" />
+                            <TextBlock Text="{Binding LatestText}" Foreground="{StaticResource Ink}" FontSize="15" FontWeight="Medium" Margin="0,2,0,14" TextWrapping="Wrap" />
+
+                            <StackPanel Visibility="{Binding IsInstalled, Converter={StaticResource Show}}">
+                                <TextBlock Text="Program folder" Style="{StaticResource Small}" />
+                                <Button Style="{StaticResource MutedLink}" Command="{Binding FolderCommand}" HorizontalAlignment="Left" Margin="0,2,0,14" ToolTip="Show in Explorer">
+                                    <TextBlock Text="{Binding Location}" TextWrapping="Wrap" FontSize="13" />
+                                </Button>
+                            </StackPanel>
+
+                            <ItemsControl ItemsSource="{Binding Links}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,14">
+                                            <TextBlock Text="In the simulator (Community link)" Style="{StaticResource Small}" />
+                                            <Button Style="{StaticResource MutedLink}" HorizontalAlignment="Left" Margin="0,2,0,0" ToolTip="Show in Explorer"
+                                                    Command="{Binding DataContext.CommunityCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding Link}">
+                                                <TextBlock Text="{Binding Link}" TextWrapping="Wrap" FontSize="13" />
+                                            </Button>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <WrapPanel Margin="0,6,0,0">
+                                <Button Content="Repair" Style="{StaticResource Sm}" Command="{Binding RepairCommand}" Margin="0,0,8,8"
+                                        ToolTip="Download this release again and put everything back in place"
+                                        Visibility="{Binding IsInstalled, Converter={StaticResource Show}}" />
+                                <Button Content="Uninstall" Style="{StaticResource SmDanger}" Command="{Binding UninstallCommand}" Margin="0,0,8,8"
+                                        Visibility="{Binding CanUninstall, Converter={StaticResource Show}}" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Licence -->
+                    <Border Style="{StaticResource Box}" Padding="24" Margin="0,20,0,0" Visibility="{Binding UsesLicence, Converter={StaticResource Show}}">
+                        <StackPanel>
+                            <TextBlock Text="LICENCE" Style="{StaticResource Kicker}" Margin="0,0,0,16" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <Ellipse Width="8" Height="8" Fill="{Binding LicenceTone, Converter={StaticResource ToneInk}}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding LicenceTitle}" Foreground="{StaticResource Ink}" FontWeight="Medium" FontSize="15" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding LicenceDetail}" Style="{StaticResource Small}" FontSize="13" />
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                <Button Content="Activate on this PC" Style="{StaticResource SmPrimary}" Command="{Binding ActivateCommand}" Margin="0,0,8,0"
+                                        Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource Show}}" />
+                                <Button Content="{Binding Price}" ContentStringFormat="Buy · {0}" Style="{StaticResource Sm}" Command="{Binding BuyCommand}"
+                                        Visibility="{Binding ShowBuy, Converter={StaticResource Show}}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RotaHub.Core/RotaHub.Core.csproj" />
+    <Project Path="src/RotaHub/RotaHub.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RotaHub.Tests/RotaHub.Tests.csproj" />
+  </Folder>
+</Solution>
