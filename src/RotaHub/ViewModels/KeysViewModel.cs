@@ -75,7 +75,7 @@ public sealed class KeysViewModel : Observable
             Show("That is not a licence key. It looks like HPRO-XXXX-XXXX-XXXX.", Tone.Danger);
             return;
         }
-        var product = HubCatalog.All.FirstOrDefault(p => p.KeyPrefix.Length > 0 && key.StartsWith(p.KeyPrefix + "-", StringComparison.Ordinal));
+        var product = HubCatalog.ForKey(key, _shell.Products.Select(p => p.Hub));
         Busy = true;
         Show("Checking the key…", Tone.Neutral);
         try
@@ -136,7 +136,7 @@ public sealed class KeyRowViewModel : Observable
     {
         _shell = shell;
         Licence = licence;
-        Product = HubCatalog.ForLicence(licence);
+        Product = HubCatalog.ForLicence(licence, shell.Products.Select(p => p.Hub));
         var local = Product == null ? null : shell.Main.Licences.OnThisPc(Product);
         HereKey = local?.Key == licence.Key;
         HereWorks = HereKey && local!.Works;

@@ -32,6 +32,19 @@ public sealed class HubService
     public InstalledStore Installed { get; }
     public PackageInstaller Installer { get; }
 
+    /// <summary>
+    /// The newest release of a website product: the one set up in the website admin, or the signed
+    /// GitHub release, whichever is newer (the signed one when both have the same version).
+    /// </summary>
+    public async Task<(HubRelease? Release, string Problem)> NewestReleaseAsync(SiteProduct site, HubProduct product, CancellationToken ct = default)
+    {
+        var (signed, problem) = await LatestReleaseAsync(product, ct).ConfigureAwait(false);
+        var web = site.Release;
+        if (web == null)
+            return (signed, signed == null && site.ReleaseProblem.Length > 0 ? site.ReleaseProblem : problem);
+        return signed != null && signed.Version >= web.Version ? (signed, "") : (web, "");
+    }
+
     /// <summary>The newest signed release of a product; null with the reason when there is none or it can't be trusted.</summary>
     public async Task<(HubRelease? Release, string Problem)> LatestReleaseAsync(HubProduct product, CancellationToken ct = default)
     {
@@ -84,7 +97,15 @@ public sealed class HubService
     {
         var zip = Path.Combine(Paths.Downloads, $"{release.Product}-{release.Version.ToString(3)}.zip");
         progress?.Report(new InstallProgress("Downloading", 0));
-        await Downloader.DownloadAsync(_http, release.PackageUrl, zip, release.PackageSha256, release.PackageSize,
+        var url = release.PackageUrl;
+        if (release.NeedsDownloadLink)
+        {
+            // A licence-only package: the website gives the link to licence holders only.
+            url = await Api.PackageUrlAsync(release.Product, ct).ConfigureAwait(false);
+            if (!HubRelease.TrustedPackageHost(url, Api.BaseUrl))
+                throw new InvalidDataException("The website gave a package link RotaHub does not trust.");
+        }
+        await Downloader.DownloadAsync(_http, url, zip, release.PackageSha256, release.PackageSize,
             new Progress<DownloadProgress>(p => progress?.Report(new InstallProgress("Downloading", p.Fraction, Size(p.Received, p.Total)))), ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         var result = await Task.Run(() => Installer.Install(release, zip, new Progress<string>(s => progress?.Report(new InstallProgress(s, null)))), ct).ConfigureAwait(false);

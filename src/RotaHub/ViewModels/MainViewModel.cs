@@ -203,7 +203,7 @@ public sealed class LoginViewModel : Observable
     public Command ForgotCommand { get; }
     public Command WebsiteCommand { get; }
 
-    public System.Windows.Media.ImageSource SidePicture { get; } = ImageCache.Builtin("clouds");
+    public System.Windows.Media.ImageSource SidePicture { get; } = ImageCache.Builtin("hero");
 
     private async Task LoginAsync(PasswordBox? box)
     {

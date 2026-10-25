@@ -73,7 +73,37 @@
                         <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="11" Margin="6,1,0,0" />
                     </StackPanel>
                 </Button>
-                <Grid />
+                <!-- Every add-on, with its state or install progress, like a game launcher's list. -->
+                <DockPanel Margin="0,22,0,12">
+                    <TextBlock DockPanel.Dock="Top" Text="YOUR ADD-ONS" Style="{StaticResource Kicker}" Foreground="{StaticResource Muted}" Margin="24,0,0,8" />
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Products}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource SideProduct}" Command="{Binding OpenCommand}" ToolTip="{Binding Name}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid Width="40" Height="40" ClipToBounds="True">
+                                                <Image Source="{Binding Picture}" Stretch="UniformToFill" />
+                                                <Ellipse Width="9" Height="9" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-1,-1"
+                                                         Fill="{Binding BadgeTone, Converter={StaticResource ToneInk}}" Stroke="{StaticResource Navy}" StrokeThickness="2" />
+                                            </Grid>
+                                            <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource White}" FontSize="14" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding StatusLine}" Foreground="{StaticResource Muted}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                                                <ProgressBar Margin="0,5,0,0" Height="2" Value="{Binding Progress, Mode=OneWay}" IsIndeterminate="{Binding Indeterminate, Mode=OneWay}"
+                                                             Visibility="{Binding Busy, Converter={StaticResource Show}}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
             </DockPanel>
         </Border>
 

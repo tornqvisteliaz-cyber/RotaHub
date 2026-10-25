@@ -107,6 +107,11 @@ public sealed class ShellViewModel : Observable
         private set => Set(ref _loadError, value);
     }
 
+    /// <summary>The big banner on the library: the first installed add-on, else the first one on sale.</summary>
+    public ProductViewModel? Featured => Products.FirstOrDefault(p => p.IsInstalled)
+        ?? Products.FirstOrDefault(p => p.Site.IsPublished)
+        ?? Products.FirstOrDefault();
+
     public bool NothingToShow => !Loading && Products.Count == 0 && LoadError.Length == 0;
 
     public string ToastText
@@ -228,6 +233,7 @@ public sealed class ShellViewModel : Observable
                 if (at != i)
                     Products.Move(at, i);
             }
+            Raise(nameof(Featured));
             await Task.WhenAll(Products.Select(p => p.CheckReleaseAsync()));
         }
         catch (ApiException ex) when (ex.SignedOut)
@@ -243,7 +249,7 @@ public sealed class ShellViewModel : Observable
         finally
         {
             Loading = false;
-            Raise(nameof(NothingToShow));
+            Raise(nameof(NothingToShow), nameof(Featured));
         }
         _ = CheckSelfUpdateAsync(manual: false);
     }

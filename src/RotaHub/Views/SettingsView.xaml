@@ -1,6 +1,7 @@
 <UserControl x:Class="RotaHub.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Style="{StaticResource Page}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="48,40,48,48" MaxWidth="860" HorizontalAlignment="Left">
             <TextBlock Text="ROTAHUB" Style="{StaticResource Kicker}" Margin="0,0,0,10" />

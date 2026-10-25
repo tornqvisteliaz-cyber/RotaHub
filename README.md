@@ -13,7 +13,10 @@ uninstall them, and manage your licence keys.
   exactly like the product's own installer (same machine id, same `%LOCALAPPDATA%\Rotaidem\{product}\license.json`),
   so an installed product starts already activated. *Add a key* attaches a key to the account
   (`/api/account/licenses/claim`) and activates it.
-- **Installs from signed releases.** Each product's newest release is described by `rotahub.jws`,
+- **New products are added on the website.** A product in Admin → Products with a RotaHub package
+  (the `rotahub` object in `/api/products`, see [docs/website-admin.md](docs/website-admin.md))
+  is installable in RotaHub straight away: no RotaHub update needed.
+- **Installs from signed releases** too. Each product's newest release is described by `rotahub.jws`,
   signed with the Rotaidem release key (the same key as HeavyPro's `update.jws`). RotaHub checks the
   signature and the package's SHA-256 before anything is unpacked. Products without a RotaHub release
   fall back to the download the website offers (their own installer).

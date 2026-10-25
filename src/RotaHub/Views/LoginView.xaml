@@ -10,17 +10,21 @@
         </Grid.ColumnDefinitions>
 
         <Grid ClipToBounds="True">
-            <Image Source="{Binding SidePicture}" Stretch="UniformToFill" />
+            <Image Source="{Binding SidePicture}" Stretch="UniformToFill" HorizontalAlignment="Right" />
             <Rectangle>
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
-                        <GradientStop Color="#E60B0C0E" Offset="0" />
-                        <GradientStop Color="#4D0B0C0E" Offset="1" />
+                        <GradientStop Color="#F20B0C0E" Offset="0" />
+                        <GradientStop Color="#990B0C0E" Offset="0.35" />
+                        <GradientStop Color="#000B0C0E" Offset="0.75" />
                     </LinearGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
             <StackPanel VerticalAlignment="Bottom" Margin="56" MaxWidth="440" HorizontalAlignment="Left">
-                <TextBlock Text="ROTAHUB" Style="{StaticResource Kicker}" Margin="0,0,0,14" />
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                    <Path Style="{StaticResource Logo}" Width="34" Height="25" />
+                    <TextBlock Text="ROTAHUB" Foreground="{StaticResource White}" FontWeight="SemiBold" FontSize="15" Margin="12,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
                 <TextBlock Text="Welcome back" Style="{StaticResource H1}" Foreground="{StaticResource White}" Margin="0,0,0,12" />
                 <TextBlock Style="{StaticResource Lead}" Foreground="{StaticResource SideText}"
                            Text="Your Rotaidem add-ons, licence keys and updates in one place. Install with one click and RotaHub keeps them up to date." />

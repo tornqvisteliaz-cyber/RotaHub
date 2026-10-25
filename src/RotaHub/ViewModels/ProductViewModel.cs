@@ -30,7 +30,7 @@ public sealed class ProductViewModel : Observable
         _shell = shell;
         _site = site;
         Hub = HubCatalog.For(site);
-        _picture = ImageCache.Builtin("approach");
+        _picture = ImageCache.Builtin(FallbackPicture(site.Id));
         OpenCommand = new Command(() => _shell.Open(this));
         BackCommand = new Command(() => _shell.Navigate("library"));
         PrimaryCommand = new Command(PrimaryAsync, () => !Busy && PrimaryEnabled);
@@ -40,13 +40,19 @@ public sealed class ProductViewModel : Observable
         WebsiteCommand = new Command(() => Os.Open(Site.PageUrl));
         BuyCommand = new Command(() => Os.Open(Site.BuyUrl.Length > 0 ? Site.BuyUrl : Site.PageUrl));
         ActivateCommand = new Command(() => ActivateAsync(quiet: false), () => !Busy && AccountKey != null && !LicenceWorksHere);
+        ShowImageCommand = new Command(p =>
+        {
+            if (p is ImageSource image)
+                Picture = image;
+            return Task.CompletedTask;
+        });
         CommunityCommand = new Command(p => { Os.ShowInExplorer(p as string ?? ""); return Task.CompletedTask; });
         Refresh();
         _ = LoadPictureAsync();
     }
 
     public SiteProduct Site => _site;
-    public HubProduct Hub { get; }
+    public HubProduct Hub { get; private set; }
 
     public Command OpenCommand { get; }
     public Command BackCommand { get; }
@@ -58,6 +64,10 @@ public sealed class ProductViewModel : Observable
     public Command BuyCommand { get; }
     public Command ActivateCommand { get; }
     public Command CommunityCommand { get; }
+    public Command ShowImageCommand { get; }
+
+    /// <summary>The website's product pictures, for the strip under the hero.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<ImageSource> Gallery { get; } = new();
 
     public string Name => Site.Name;
     public string Tagline => Site.Tagline;
@@ -101,6 +111,14 @@ public sealed class ProductViewModel : Observable
         : UpdateAvailable || NeedsRepair ? Tone.Warn
         : IsInstalled ? Tone.Ok
         : Site.Status switch { "coming_soon" => Tone.Info, "in_development" => Tone.Warn, "published" or "" => Tone.Ok, _ => Tone.Neutral };
+
+    /// <summary>One line for the sidebar: progress while working, otherwise the state.</summary>
+    public string StatusLine => Busy ? (Indeterminate || Progress <= 0 ? Step : $"{Step} · {Progress:P0}")
+        : UpdateAvailable ? $"Update to {_release!.Version.ToString(3)}"
+        : NeedsRepair ? "Needs repair"
+        : IsInstalled ? "Installed · v" + _installed!.Version
+        : _release != null || Site.HasDownload ? "Not installed"
+        : Site.StatusText;
 
     public string CardVersion => IsInstalled ? "v" + _installed!.Version : Site.Price.Length > 0 ? Site.Price : Site.Version.Length > 0 ? "v" + Site.Version : "";
 
@@ -165,7 +183,11 @@ public sealed class ProductViewModel : Observable
     public string Step
     {
         get => _step;
-        private set => Set(ref _step, value);
+        private set
+        {
+            if (Set(ref _step, value))
+                Raise(nameof(StatusLine));
+        }
     }
 
     public string Detail
@@ -177,7 +199,11 @@ public sealed class ProductViewModel : Observable
     public double Progress
     {
         get => _progress;
-        private set => Set(ref _progress, value);
+        private set
+        {
+            if (Set(ref _progress, value))
+                Raise(nameof(StatusLine));
+        }
     }
 
     public bool Indeterminate
@@ -189,6 +215,7 @@ public sealed class ProductViewModel : Observable
     public void Update(SiteProduct site)
     {
         _site = site;
+        Hub = HubCatalog.For(site);
         Raise(nameof(Site), nameof(Name), nameof(Tagline), nameof(Kicker), nameof(Description), nameof(Features), nameof(Changelog), nameof(Price));
         Refresh();
         _ = LoadPictureAsync();
@@ -205,13 +232,11 @@ public sealed class ProductViewModel : Observable
 
     public async Task CheckReleaseAsync()
     {
-        if (Hub.ManifestUrl == null)
-            return;
         _checkingRelease = true;
         RaiseState();
         try
         {
-            var (release, problem) = await _shell.Main.Hub.LatestReleaseAsync(Hub);
+            var (release, problem) = await _shell.Main.Hub.NewestReleaseAsync(Site, Hub);
             _release = release;
             _releaseProblem = problem;
             if (release == null && problem.Length > 0)
@@ -229,7 +254,7 @@ public sealed class ProductViewModel : Observable
         Raise(nameof(IsInstalled), nameof(ByRotaHub), nameof(CanUninstall), nameof(UpdateAvailable), nameof(NeedsRepair), nameof(Problems), nameof(Notes),
             nameof(Links), nameof(InstalledText), nameof(LatestText), nameof(Location), nameof(Badge), nameof(BadgeTone), nameof(CardVersion),
             nameof(PrimaryEnabled), nameof(PrimaryText), nameof(PrimaryIcon), nameof(AccountKey), nameof(LicenceWorksHere), nameof(LicenceTitle),
-            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog));
+            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog), nameof(StatusLine));
         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
     }
 
@@ -238,6 +263,27 @@ public sealed class ProductViewModel : Observable
         var image = await ImageCache.GetAsync(Site.Picture);
         if (image != null)
             Picture = image;
+        var urls = Site.Images.Count > 0 ? Site.Images : Site.ImageUrl.Length > 0 ? new[] { Site.ImageUrl } : Array.Empty<string>();
+        var pictures = new List<ImageSource>();
+        foreach (var url in urls.Distinct())
+        {
+            if (await ImageCache.GetAsync(url) is { } picture)
+                pictures.Add(picture);
+        }
+        Gallery.Clear();
+        if (pictures.Count > 1)
+        {
+            foreach (var picture in pictures)
+                Gallery.Add(picture);
+        }
+    }
+
+    /// <summary>A product with no pictures on the website yet gets one of the site's own photos, the same one each time.</summary>
+    private static string FallbackPicture(string id)
+    {
+        var photos = new[] { "approach", "night", "clouds", "hero" };
+        var hash = id.Aggregate(17, (h, c) => unchecked(h * 31 + c));
+        return photos[(hash & 0x7fffffff) % photos.Length];
     }
 
     // ---------- actions ----------

@@ -12,7 +12,8 @@ public sealed record ChangelogEntry(string Version, string Date, string Notes);
 public sealed record SiteProduct(
     string Id, string Name, string Tagline, string Description, string Version, string Status, string Simulator,
     string Price, string BuyUrl, string ImageUrl, IReadOnlyList<string> Images, IReadOnlyList<string> Features,
-    IReadOnlyList<ChangelogEntry> Changelog, bool HasDownload, bool LicenceOnly, string PageUrl)
+    IReadOnlyList<ChangelogEntry> Changelog, bool HasDownload, bool LicenceOnly, string PageUrl,
+    HubRelease? Release = null, string ReleaseProblem = "", WebsiteLicence? Licence = null)
 {
     /// <summary>The picture for cards and the hero: the first gallery image, else the cover.</summary>
     public string Picture => Images.FirstOrDefault() ?? ImageUrl;
@@ -30,6 +31,12 @@ public sealed record SiteProduct(
         _ => Status.Replace('_', ' ')
     };
 }
+
+/// <summary>How a product set up in the website admin uses licence keys (its "rotahub.licence" object).</summary>
+/// <param name="ProductIds">Ids the licence server knows the product by; the website product id when empty.</param>
+/// <param name="Store">The folder under %LOCALAPPDATA%\Rotaidem the product reads its key from.</param>
+/// <param name="Prefix">The key prefix, e.g. HPRO.</param>
+public sealed record WebsiteLicence(IReadOnlyList<string> ProductIds, string Store, string Prefix);
 
 /// <summary>A licence key on the signed-in account (the website's /api/account/licenses).</summary>
 public sealed record AccountLicence(long Id, string Key, string ProductId, string Status, int MaxActivations, int Activations, string CreatedAt)
@@ -156,16 +163,29 @@ public sealed class RotaidemApi
         return Absolute(data["url"].Str());
     }
 
+    /// <summary>The link to a licence-only RotaHub package, handed out like the product's download (counts it too).</summary>
+    public async Task<string> PackageUrlAsync(string productId, CancellationToken ct = default)
+    {
+        var data = await SendAsync(HttpMethod.Post, "/api/download/" + Uri.EscapeDataString(productId),
+            new Dictionary<string, object> { ["kind"] = "rotahub" }, ct).ConfigureAwait(false);
+        return Absolute(data["url"].Str());
+    }
+
     private SiteProduct ReadProduct(JsonNode p)
     {
         var id = p["id"].Str();
+        var hub = p["rotahub"];
+        var release = HubRelease.FromWebsite(hub, id, p["name"].Str(id), Absolute, BaseUrl, out var problem);
+        var licence = hub["licence"];
+        var website = !licence.Exists ? null : new WebsiteLicence(
+            licence["products"].Strings.ToList(), licence["store"].Str(), licence["prefix"].Str().ToUpperInvariant());
         return new SiteProduct(
             id, p["name"].Str(id), p["tagline"].Str(), p["description"].Str(), p["version"].Str(), p["status"].Str(), p["simulator"].Str(),
             p["price"].Str(), p["buy_url"].Str(), Absolute(p["image_url"].Str()),
             p["images"].Strings.Select(Absolute).ToList(), p["features"].Strings.ToList(),
             p["changelog"].Items.Select(c => new ChangelogEntry(c["version"].Str(), c["date"].Str(), c["notes"].Str())).ToList(),
             p["download_url"].Str().Length > 0 || p["has_download"].Bool(), p["download_gate"].Str() == "licence",
-            Absolute(p["page"].Str("/addons/view?id=" + Uri.EscapeDataString(id))));
+            Absolute(p["page"].Str("/addons/view?id=" + Uri.EscapeDataString(id))), release, problem, website);
     }
 
     private static AccountLicence ReadLicence(JsonNode l) =>
