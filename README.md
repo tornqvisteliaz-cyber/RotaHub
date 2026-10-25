@@ -35,6 +35,10 @@ uninstall them, and manage your licence keys.
   links are https or pages on the site. The website can never set an exe to run (`LegacyExe` stays in
   `HubCatalog.cs`). A product the website adds this way has the website product id as its RotaHub id,
   so sign its release with `-Product <website id>`.
+- **Its look comes from the website too** (Admin → RotaHub → Look of the app): the accent colour, the
+  log in picture, a library banner, the picture for products without one, a picture per product, and
+  the log in and library texts. The last settings are kept in `cache\hub.json`, so RotaHub looks right
+  from the first screen and offline.
 
 ## Layout
 

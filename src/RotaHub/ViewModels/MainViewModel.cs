@@ -8,6 +8,10 @@ public sealed class MainViewModel : Observable
 {
     private object? _screen;
     private DialogViewModel? _dialog;
+    private HubConfig _config = HubConfig.Empty;
+    private System.Windows.Media.ImageSource _sidePicture = ImageCache.Builtin("clouds");
+    private System.Windows.Media.ImageSource _productPicture = ImageCache.Builtin("approach");
+    private System.Windows.Media.ImageSource? _libraryBanner;
 
     public MainViewModel(HubPaths paths)
     {
@@ -17,6 +21,7 @@ public sealed class MainViewModel : Observable
         Hub = new HubService(paths, Settings, Api, Keys.Release);
         Licences = new Licences(Api.BaseUrl, Keys.Licence);
         Sessions = new SessionStore(paths);
+        ApplyConfig(HubConfig.FromFile(paths.HubConfigCache, Api.Absolute)); // the look from the last start, until the website answers
     }
 
     /// <summary>rotaidem.com; debug builds can point at a local copy of the website with ROTAHUB_SERVER.</summary>
@@ -37,6 +42,72 @@ public sealed class MainViewModel : Observable
     public Licences Licences { get; }
     public SessionStore Sessions { get; }
 
+    /// <summary>RotaHub's settings from the website (Admin → RotaHub).</summary>
+    public HubConfig Config
+    {
+        get => _config;
+        private set => Set(ref _config, value);
+    }
+
+    public System.Windows.Media.ImageSource SidePicture
+    {
+        get => _sidePicture;
+        private set => Set(ref _sidePicture, value);
+    }
+
+    /// <summary>For products without a picture of their own.</summary>
+    public System.Windows.Media.ImageSource ProductPicture
+    {
+        get => _productPicture;
+        private set => Set(ref _productPicture, value);
+    }
+
+    /// <summary>A wide picture at the top of the library; null for none.</summary>
+    public System.Windows.Media.ImageSource? LibraryBanner
+    {
+        get => _libraryBanner;
+        private set => Set(ref _libraryBanner, value);
+    }
+
+    public string LoginTitle => Or(Config.Look.LoginTitle, "Welcome back");
+    public string LoginText => Or(Config.Look.LoginText, "Your Rotaidem add-ons, licence keys and updates in one place. Install with one click and RotaHub keeps them up to date.");
+    public string LibraryTitle => Or(Config.Look.LibraryTitle, "Library");
+    public string LibraryText => Or(Config.Look.LibraryText, "Every Rotaidem add-on. Install one and RotaHub puts it in place, links its in-game part into your simulator and keeps it up to date.");
+
+    private static string Or(string value, string fallback) => value.Length > 0 ? value : fallback;
+
+    /// <summary>Reads the website's RotaHub settings and applies them; on a failure the last ones stay.</summary>
+    public async Task<HubConfig> RefreshConfigAsync()
+    {
+        try
+        {
+            ApplyConfig(await Api.HubConfigAsync(Paths.HubConfigCache));
+        }
+        catch (ApiException ex) when (!ex.SignedOut)
+        {
+            Log.Info("RotaHub settings: " + ex.Message);
+        }
+        return Config;
+    }
+
+    private void ApplyConfig(HubConfig config)
+    {
+        var look = Config.Look;
+        Config = config;
+        HubCatalog.Config = config;
+        AppLook.Apply(config.Look);
+        Raise(nameof(LoginTitle), nameof(LoginText), nameof(LibraryTitle), nameof(LibraryText));
+        if (look != config.Look || look == HubLook.Default)
+            _ = LoadPicturesAsync(config.Look);
+    }
+
+    private async Task LoadPicturesAsync(HubLook look)
+    {
+        SidePicture = (look.LoginImage.Length > 0 ? await ImageCache.GetAsync(look.LoginImage) : null) ?? ImageCache.Builtin("clouds");
+        ProductPicture = (look.ProductImage.Length > 0 ? await ImageCache.GetAsync(look.ProductImage) : null) ?? ImageCache.Builtin("approach");
+        LibraryBanner = look.LibraryImage.Length > 0 ? await ImageCache.GetAsync(look.LibraryImage) : null;
+    }
+
     public object? Screen
     {
         get => _screen;
@@ -51,6 +122,7 @@ public sealed class MainViewModel : Observable
 
     public async Task StartAsync()
     {
+        _ = RefreshConfigAsync(); // public: the login screen gets the newest look too
         var saved = Sessions.Load();
         if (saved == null)
         {
@@ -203,7 +275,7 @@ public sealed class LoginViewModel : Observable
     public Command ForgotCommand { get; }
     public Command WebsiteCommand { get; }
 
-    public System.Windows.Media.ImageSource SidePicture { get; } = ImageCache.Builtin("clouds");
+    public MainViewModel Main => _main;
 
     private async Task LoginAsync(PasswordBox? box)
     {

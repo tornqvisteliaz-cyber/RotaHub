@@ -23,6 +23,9 @@ public sealed class HubPaths
 
     public string Log => Path.Combine(Root, "rotahub.log");
 
+    /// <summary>The website's RotaHub settings from the last refresh (Admin → RotaHub).</summary>
+    public string HubConfigCache => Path.Combine(Root, "cache", "hub.json");
+
     public string DefaultLibrary => Path.Combine(Path.GetDirectoryName(Root)!, "Library");
 
     /// <summary>Writes a file through a temporary copy, so a crash never leaves half a file.</summary>

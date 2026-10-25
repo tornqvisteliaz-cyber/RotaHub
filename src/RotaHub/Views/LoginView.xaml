@@ -10,7 +10,7 @@
         </Grid.ColumnDefinitions>
 
         <Grid ClipToBounds="True">
-            <Image Source="{Binding SidePicture}" Stretch="UniformToFill" />
+            <Image Source="{Binding Main.SidePicture}" Stretch="UniformToFill" />
             <Rectangle>
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
@@ -21,9 +21,8 @@
             </Rectangle>
             <StackPanel VerticalAlignment="Bottom" Margin="56" MaxWidth="440" HorizontalAlignment="Left">
                 <TextBlock Text="ROTAHUB" Style="{StaticResource Kicker}" Margin="0,0,0,14" />
-                <TextBlock Text="Welcome back" Style="{StaticResource H1}" Foreground="{StaticResource White}" Margin="0,0,0,12" />
-                <TextBlock Style="{StaticResource Lead}" Foreground="{StaticResource SideText}"
-                           Text="Your Rotaidem add-ons, licence keys and updates in one place. Install with one click and RotaHub keeps them up to date." />
+                <TextBlock Text="{Binding Main.LoginTitle}" Style="{StaticResource H1}" Foreground="{StaticResource White}" Margin="0,0,0,12" />
+                <TextBlock Style="{StaticResource Lead}" Foreground="{StaticResource SideText}" Text="{Binding Main.LoginText}" />
             </StackPanel>
         </Grid>
 

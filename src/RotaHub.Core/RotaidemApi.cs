@@ -149,12 +149,16 @@ public sealed class RotaidemApi
         return ReadLicence(data["license"]);
     }
 
-    /// <summary>RotaHub's settings from the website (Admin → RotaHub); empty from a website that has none yet.</summary>
-    public async Task<HubConfig> HubConfigAsync(CancellationToken ct = default)
+    /// <summary>RotaHub's settings from the website (Admin → RotaHub); empty from a website that has none yet.
+    /// With a cache file, a successful read is saved there for the next start (HubConfig.FromFile).</summary>
+    public async Task<HubConfig> HubConfigAsync(string? cacheFile = null, CancellationToken ct = default)
     {
         try
         {
-            return HubConfig.Read(await SendAsync(HttpMethod.Get, "/api/hub", null, ct).ConfigureAwait(false), Absolute);
+            var data = await SendAsync(HttpMethod.Get, "/api/hub", null, ct).ConfigureAwait(false);
+            if (cacheFile != null)
+                HubConfig.Save(cacheFile, data);
+            return HubConfig.Read(data, Absolute);
         }
         catch (ApiException ex) when (ex.Status == 404)
         {

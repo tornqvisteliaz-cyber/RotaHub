@@ -285,9 +285,7 @@ public sealed class ShellViewModel : Observable
     {
         try
         {
-            var config = await Main.Api.HubConfigAsync();
-            HubCatalog.Config = config;
-            Config = config;
+            Config = await Main.RefreshConfigAsync();
             Keys.Rebuild(); // keys of products the website just added
         }
         catch (ApiException ex) when (!ex.SignedOut)

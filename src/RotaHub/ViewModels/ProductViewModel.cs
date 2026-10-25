@@ -30,7 +30,7 @@ public sealed class ProductViewModel : Observable
         _shell = shell;
         _site = site;
         Hub = HubCatalog.For(site);
-        _picture = ImageCache.Builtin("approach");
+        _picture = shell.Main.ProductPicture;
         OpenCommand = new Command(() => _shell.Open(this));
         BackCommand = new Command(() => _shell.Navigate("library"));
         PrimaryCommand = new Command(PrimaryAsync, () => !Busy && PrimaryEnabled);
@@ -237,9 +237,9 @@ public sealed class ProductViewModel : Observable
 
     private async Task LoadPictureAsync()
     {
-        var image = await ImageCache.GetAsync(Site.Picture);
-        if (image != null)
-            Picture = image;
+        // Admin → RotaHub can give the product its own picture in the app; else the website's, else the default.
+        var url = HubCatalog.Config.For(Site.Id)?.Image is { Length: > 0 } own ? own : Site.Picture;
+        Picture = await ImageCache.GetAsync(url) ?? _shell.Main.ProductPicture;
     }
 
     // ---------- actions ----------

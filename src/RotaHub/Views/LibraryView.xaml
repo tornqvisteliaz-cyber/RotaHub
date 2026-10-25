@@ -3,12 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding Shell}">
         <StackPanel Margin="48,40,40,48">
+            <!-- Admin → RotaHub → Look of the app → Library banner -->
+            <Border Height="190" Margin="0,0,0,32" ClipToBounds="True" Background="{StaticResource Bg2}"
+                    Visibility="{Binding Main.LibraryBanner, Converter={StaticResource Show}}">
+                <Image Source="{Binding Main.LibraryBanner}" Stretch="UniformToFill" />
+            </Border>
             <Grid Margin="0,0,0,32">
                 <StackPanel>
                     <TextBlock Text="{Binding FirstName, StringFormat='WELCOME, {0}', Converter={StaticResource Upper}}" Style="{StaticResource Kicker}" Margin="0,0,0,10" />
-                    <TextBlock Text="Library" Style="{StaticResource H1}" Margin="0,0,0,8" />
-                    <TextBlock Style="{StaticResource Lead}" MaxWidth="620" HorizontalAlignment="Left"
-                               Text="Every Rotaidem add-on. Install one and RotaHub puts it in place, links its in-game part into your simulator and keeps it up to date." />
+                    <TextBlock Text="{Binding Main.LibraryTitle}" Style="{StaticResource H1}" Margin="0,0,0,8" />
+                    <TextBlock Style="{StaticResource Lead}" MaxWidth="620" HorizontalAlignment="Left" Text="{Binding Main.LibraryText}" />
                 </StackPanel>
                 <Button HorizontalAlignment="Right" VerticalAlignment="Bottom" Style="{StaticResource Sm}" Command="{Binding RefreshCommand}">
                     <StackPanel Orientation="Horizontal">

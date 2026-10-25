@@ -78,6 +78,47 @@ public class HubConfigTests
     }
 
     [Fact]
+    public void Reads_the_look_and_keeps_only_safe_pictures()
+    {
+        var data = new Dictionary<string, object>
+        {
+            ["look"] = new Dictionary<string, object>
+            {
+                ["accent_color"] = "#4cc38a", ["login_image"] = "/media/3.jpg", ["library_image"] = "https://cdn.example.com/banner.jpg",
+                ["product_image"] = "file:///C:/secret.jpg", ["login_title"] = "Hello pilot", ["library_text"] = new string('x', 400),
+            },
+            ["products"] = new object[] { new Dictionary<string, object> { ["id"] = "heavypro", ["image"] = "/img/hero.jpg" },
+                                          new Dictionary<string, object> { ["id"] = "other", ["image"] = "javascript:alert(1)", ["featured"] = true } },
+        };
+        var config = Read(data);
+        Assert.Equal("#4cc38a", config.Look.AccentColor);
+        Assert.Equal("https://rotaidem.com/media/3.jpg", config.Look.LoginImage);
+        Assert.Equal("https://cdn.example.com/banner.jpg", config.Look.LibraryImage);
+        Assert.Equal("", config.Look.ProductImage);
+        Assert.Equal("Hello pilot", config.Look.LoginTitle);
+        Assert.Equal(300, config.Look.LibraryText.Length);
+        Assert.Equal("https://rotaidem.com/img/hero.jpg", config.For("heavypro")!.Image);
+        Assert.Equal("", config.For("other")!.Image);
+        Assert.Null(Read(new Dictionary<string, object> { ["look"] = new Dictionary<string, object> { ["accent_color"] = "red; drop" } }).Look.AccentColor);
+        Assert.Equal(HubLook.Default, HubConfig.Empty.Look);
+
+        // saved after a refresh, read again at the next start
+        var file = Path.Combine(Path.GetTempPath(), "rotahub-test-" + Guid.NewGuid().ToString("N"), "hub.json");
+        try
+        {
+            HubConfig.Save(file, JsonNode.Parse(JsonNode.Write(data)));
+            var again = HubConfig.FromFile(file, Absolute);
+            Assert.Equal(config.Look, again.Look);
+            Assert.Equal(config.Products.Select(p => p.Image), again.Products.Select(p => p.Image));
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(file)!, true);
+        }
+        Assert.Same(HubConfig.Empty, HubConfig.FromFile(file, Absolute));
+    }
+
+    [Fact]
     public void The_website_settings_change_the_catalogue_but_never_the_exe()
     {
         try
