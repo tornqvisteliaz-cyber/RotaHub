@@ -5,6 +5,28 @@ description, features, version history; drafts are hidden). To make a product **
 RotaHub, the website adds a `rotahub` object to that product in `GET /api/products`. Nothing in
 RotaHub has to change for a new product.
 
+## The simplest way: just a download link and a version
+
+Nothing new is needed on the website for this. In Admin → Products, give a product a **download link**
+(`download_url`) and a **version** like `1.0.0`. RotaHub then:
+
+- shows **Install**, and installs it by type:
+  - **.exe / .msi**: runs the installer, then remembers the version;
+  - **.zip of MSFS packages** (folders with `manifest.json` and `layout.json`): links each into the
+    Community folder of the simulator the product is listed for (MSFS 2024, or 2020 when the
+    product's simulator says 2020);
+  - **.zip laid out as a RotaHub package** (`app\`, `community\`): installs it as one;
+  - **any other .zip**: unpacks it into the library; a single `.exe` at its top becomes **Launch**.
+- shows **Update to x** as soon as you raise the version (with a new download link) in the admin.
+
+RotaHub looks at the website every 5 minutes and whenever its window is brought back, so a new version
+reaches people without them restarting it. Zip updates install by themselves when "Install updates
+automatically" is on in RotaHub's Settings (the default); installers always wait for the person. A
+licence-only download (`download_gate: "licence"`) still only goes to people with a licence.
+
+The `rotahub` object below is only needed for more control: an app folder under `%LOCALAPPDATA%`, a
+checksum, process names to close, licence settings for keys.
+
 ## What `/api/products` returns per product
 
 ```json

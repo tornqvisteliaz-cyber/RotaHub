@@ -33,16 +33,20 @@ public sealed class HubService
     public PackageInstaller Installer { get; }
 
     /// <summary>
-    /// The newest release of a website product: the one set up in the website admin, or the signed
-    /// GitHub release, whichever is newer (the signed one when both have the same version).
+    /// The newest release of a website product, from any of: its signed GitHub release, the RotaHub
+    /// section of the website admin, or just its download link and version in the admin. The highest
+    /// version wins; on a tie the signed one, then the website's RotaHub section.
     /// </summary>
     public async Task<(HubRelease? Release, string Problem)> NewestReleaseAsync(SiteProduct site, HubProduct product, CancellationToken ct = default)
     {
         var (signed, problem) = await LatestReleaseAsync(product, ct).ConfigureAwait(false);
-        var web = site.Release;
-        if (web == null)
-            return (signed, signed == null && site.ReleaseProblem.Length > 0 ? site.ReleaseProblem : problem);
-        return signed != null && signed.Version >= web.Version ? (signed, "") : (web, "");
+        var best = new[] { signed, site.Release, site.DownloadRelease }
+            .Where(r => r != null)
+            .OrderByDescending(r => r!.Version).ThenByDescending(r => r!.Rank)
+            .FirstOrDefault();
+        if (best != null)
+            return (best, "");
+        return (null, site.ReleaseProblem.Length > 0 ? site.ReleaseProblem : problem);
     }
 
     /// <summary>The newest signed release of a product; null with the reason when there is none or it can't be trusted.</summary>
@@ -73,8 +77,10 @@ public sealed class HubService
     public InstalledProduct? Detect(HubProduct product)
     {
         var record = Installed.Get(product.Id);
-        if (record != null)
+        if (record != null && (record.Kind != "setup" || product.LegacyExe == null))
             return record;
+        // Installed by its own setup: the program file says what is really there (it may have
+        // updated itself, or been uninstalled in Windows since).
         if (product.LegacyExe == null)
             return null;
         var exe = HubCatalog.Expand(product.LegacyExe);
@@ -93,7 +99,16 @@ public sealed class HubService
         };
     }
 
-    public async Task<InstallResult> InstallAsync(HubRelease release, IProgress<InstallProgress>? progress, CancellationToken ct)
+    /// <summary>
+    /// Installs or updates to <paramref name="release"/>. Null when the download was something RotaHub
+    /// can't install by itself (it is then shown in Explorer).
+    /// </summary>
+    public Task<InstallResult?> InstallAsync(HubRelease release, SiteProduct site, HubProduct product, IProgress<InstallProgress>? progress, CancellationToken ct) =>
+        release.IsDownload
+            ? InstallDownloadAsync(release, site, product, progress, ct)
+            : InstallPackageAsync(release, progress, ct).ContinueWith(t => (InstallResult?)t.Result, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+
+    private async Task<InstallResult> InstallPackageAsync(HubRelease release, IProgress<InstallProgress>? progress, CancellationToken ct)
     {
         var zip = Path.Combine(Paths.Downloads, $"{release.Product}-{release.Version.ToString(3)}.zip");
         progress?.Report(new InstallProgress("Downloading", 0));
@@ -105,12 +120,106 @@ public sealed class HubService
             if (!HubRelease.TrustedPackageHost(url, Api.BaseUrl))
                 throw new InvalidDataException("The website gave a package link RotaHub does not trust.");
         }
-        await Downloader.DownloadAsync(_http, url, zip, release.PackageSha256, release.PackageSize,
+        await Downloader.DownloadAsync(_http, url, zip, release.PackageSha256.Length == 0 ? null : release.PackageSha256, release.PackageSize,
             new Progress<DownloadProgress>(p => progress?.Report(new InstallProgress("Downloading", p.Fraction, Size(p.Received, p.Total)))), ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
         var result = await Task.Run(() => Installer.Install(release, zip, new Progress<string>(s => progress?.Report(new InstallProgress(s, null)))), ct).ConfigureAwait(false);
         TryDelete(zip);
         return result;
+    }
+
+    /// <summary>
+    /// Installs the product's download link from Admin → Products, at the version set there:
+    /// - an .exe or .msi is run (the product's own installer) and the version remembered, so a newer
+    ///   version on the website shows as an update;
+    /// - a zip laid out as a RotaHub package (app\, community\) is installed as one;
+    /// - a zip of MSFS packages (folders with a manifest.json) is linked into the Community folder;
+    /// - any other zip is unpacked into the library, its one top-level .exe (if any) becoming Launch;
+    /// - anything else is shown in Explorer.
+    /// </summary>
+    private async Task<InstallResult?> InstallDownloadAsync(HubRelease release, SiteProduct site, HubProduct product, IProgress<InstallProgress>? progress, CancellationToken ct)
+    {
+        progress?.Report(new InstallProgress("Getting the download", null));
+        // Through the website, so licence-only downloads are checked and the download is counted.
+        var url = await Api.DownloadUrlAsync(site.Id, ct).ConfigureAwait(false);
+        var name = Path.GetFileName(new Uri(url).LocalPath);
+        if (string.IsNullOrEmpty(name) || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            name = site.Id + ".exe";
+        var extension = Path.GetExtension(name).ToLowerInvariant();
+        var file = Path.Combine(Paths.Downloads, $"{site.Id}-{release.Version.ToString(3)}{extension}");
+        TryDelete(file);
+        await Downloader.DownloadAsync(_http, url, file, null, 0,
+            new Progress<DownloadProgress>(p => progress?.Report(new InstallProgress("Downloading", p.Total > 0 ? p.Fraction : null, Size(p.Received, p.Total)))), ct).ConfigureAwait(false);
+
+        if (extension is ".exe" or ".msi")
+        {
+            progress?.Report(new InstallProgress("Running the installer", null, "Finish the installer's steps."));
+            var exitCode = 0;
+            using (var process = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
+            {
+                if (process != null)
+                {
+                    await Task.Run(() => process.WaitForExit(), ct).ConfigureAwait(false);
+                    exitCode = process.ExitCode;
+                }
+            }
+            TryDelete(file);
+            // A cancelled or failed installer: nothing changed, so nothing is remembered.
+            if (exitCode != 0)
+                throw new InvalidOperationException($"The {site.Name} installer closed without installing (code {exitCode}).");
+            var record = Installed.Get(product.Id) ?? new InstalledProduct { Product = product.Id };
+            record.Kind = "setup";
+            record.Version = release.Version.ToString(3);
+            record.InstalledAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
+            if (product.LegacyExe != null)
+            {
+                var exe = HubCatalog.Expand(product.LegacyExe);
+                record.AppDir = Path.GetDirectoryName(exe)!;
+                record.AppExe = Path.GetFileName(exe);
+                record.Processes = new List<string> { Path.GetFileNameWithoutExtension(exe) };
+            }
+            Installed.Put(record);
+            return new InstallResult(record, Array.Empty<string>());
+        }
+
+        if (extension != ".zip")
+        {
+            Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + file + "\"") { UseShellExecute = true })?.Dispose();
+            return null;
+        }
+
+        progress?.Report(new InstallProgress("Unpacking", null));
+        var unpacked = Path.Combine(Paths.Downloads, site.Id + "-unpacked");
+        var layout = Path.Combine(Paths.Downloads, site.Id + "-package");
+        return await Task.Run(() =>
+        {
+            try
+            {
+                foreach (var dir in new[] { unpacked, layout })
+                {
+                    if (Directory.Exists(dir))
+                        Directory.Delete(dir, recursive: true);
+                }
+                PackageInstaller.Extract(file, unpacked);
+                var shaped = ZipLayout.Arrange(unpacked, layout, site.Sim, site.Id);
+                var package = release with
+                {
+                    AppExe = shaped.AppExe,
+                    Shortcut = shaped.AppExe == null ? null : site.Name,
+                    Community = shaped.Community,
+                    Processes = shaped.AppExe == null ? Array.Empty<string>() : new[] { Path.GetFileNameWithoutExtension(shaped.AppExe) },
+                };
+                return (InstallResult?)Installer.InstallFolder(package, layout, new Progress<string>(s => progress?.Report(new InstallProgress(s, null))));
+            }
+            finally
+            {
+                foreach (var dir in new[] { unpacked, layout })
+                {
+                    try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); } catch (IOException) { }
+                }
+                TryDelete(file);
+            }
+        }, ct).ConfigureAwait(false);
     }
 
     /// <summary>

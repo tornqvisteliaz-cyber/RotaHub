@@ -91,6 +91,14 @@
                     </StackPanel>
                 </CheckBox>
             </Border>
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,16">
+                <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding AutoUpdate}">
+                    <StackPanel>
+                        <TextBlock Text="Install updates automatically" Foreground="{StaticResource Ink}" FontSize="15" />
+                        <TextBlock Text="RotaHub checks rotaidem.com every few minutes. Updates that come with their own installer always wait for you." Style="{StaticResource Small}" />
+                    </StackPanel>
+                </CheckBox>
+            </Border>
             <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,16" Margin="0,0,0,40">
                 <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding DesktopShortcuts}">
                     <StackPanel>

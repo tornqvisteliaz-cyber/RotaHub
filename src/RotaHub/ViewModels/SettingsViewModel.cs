@@ -42,6 +42,17 @@ public sealed class SettingsViewModel : Observable
         }
     }
 
+    public bool AutoUpdate
+    {
+        get => Settings.AutoUpdate;
+        set
+        {
+            Settings.AutoUpdate = value;
+            Save();
+            Raise();
+        }
+    }
+
     public bool DesktopShortcuts
     {
         get => Settings.DesktopShortcuts;

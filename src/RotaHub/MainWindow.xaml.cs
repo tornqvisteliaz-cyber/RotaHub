@@ -7,6 +7,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Notifier.Init(this);
+        // Coming back to RotaHub looks at the website again (new versions set in the admin).
+        Activated += (_, _) => App.Shell?.WindowActivated();
         StateChanged += (_, _) =>
         {
             var max = WindowState == WindowState.Maximized;

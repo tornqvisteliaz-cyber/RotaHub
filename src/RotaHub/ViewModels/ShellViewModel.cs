@@ -35,12 +35,17 @@ public sealed class ShellViewModel : Observable
             Toast("");
         };
         NavigateCommand = new Command(p => { Navigate(p as string ?? "library"); return Task.CompletedTask; });
-        RefreshCommand = new Command(LoadAsync);
+        RefreshCommand = new Command(() => LoadAsync());
         SignOutCommand = new Command(() => Main.SignOutAsync());
         WebsiteCommand = new Command(() => Os.Open(Main.Api.BaseUrl));
         AccountCommand = new Command(() => Os.Open(Main.Api.BaseUrl + "/account"));
         SelfUpdateCommand = new Command(UpdateSelfAsync);
         DismissToastCommand = new Command(() => Toast(""));
+        UpdateAllCommand = new Command(UpdateAllAsync, () => Updates > 0);
+        // What is set in the website admin reaches RotaHub without a restart: look again every few
+        // minutes, and whenever RotaHub's window is brought back after a while.
+        _checkTimer.Tick += (_, _) => _ = CheckNowAsync();
+        _checkTimer.Start();
     }
 
     public MainViewModel Main { get; }
@@ -159,6 +164,75 @@ public sealed class ShellViewModel : Observable
     public Command AccountCommand { get; }
     public Command SelfUpdateCommand { get; }
     public Command DismissToastCommand { get; }
+    public Command UpdateAllCommand { get; }
+
+    private readonly DispatcherTimer _checkTimer = new() { Interval = TimeSpan.FromMinutes(5) };
+    private readonly HashSet<string> _announced = new();
+    private DateTime _lastCheck = DateTime.MinValue;
+    private bool _checking;
+
+    /// <summary>How many installed add-ons have a newer version on the website.</summary>
+    public int Updates => Products.Count(p => p.UpdateAvailable);
+
+    public string UpdatesText => Updates == 1
+        ? $"An update is ready: {Products.First(p => p.UpdateAvailable).Name} {Products.First(p => p.UpdateAvailable).UpdateVersion}."
+        : $"{Updates} updates are ready.";
+
+    /// <summary>Called by a product whenever its state changes.</summary>
+    public void UpdatesChanged() => Raise(nameof(Updates), nameof(UpdatesText));
+
+    /// <summary>Signed out: no more background checks for this account.</summary>
+    public void Close() => _checkTimer.Stop();
+
+    /// <summary>RotaHub's window came back to the front.</summary>
+    public void WindowActivated()
+    {
+        if (DateTime.UtcNow - _lastCheck > TimeSpan.FromMinutes(1))
+            _ = CheckNowAsync();
+    }
+
+    /// <summary>
+    /// Looks at the website again in the background: new products, new versions and download links,
+    /// new keys. Announces each new update once, and installs it when automatic updates are on and the
+    /// update needs nobody (installers always wait for the user).
+    /// </summary>
+    public async Task CheckNowAsync()
+    {
+        if (_checking || Products.Any(p => p.Busy))
+            return;
+        _checking = true;
+        try
+        {
+            await LoadAsync(quiet: true);
+            foreach (var product in Products.Where(p => p.UpdateAvailable).ToList())
+            {
+                var key = product.Site.Id + "@" + product.UpdateVersion;
+                if (!_announced.Add(key))
+                    continue;
+                if (Main.Settings.AutoUpdate && !product.UpdateNeedsYou)
+                {
+                    await product.UpdateQuietlyAsync();
+                    if (!product.UpdateAvailable)
+                    {
+                        Notifier.Show($"{product.Name} updated", $"RotaHub installed {product.Name} {product.CardVersion.TrimStart('v')}.", () => Open(product));
+                        continue;
+                    }
+                }
+                Notifier.Show($"{product.Name} {product.UpdateVersion} is available", "Open RotaHub to update.", () => Open(product));
+                Toast($"{product.Name} {product.UpdateVersion} is available.");
+            }
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+
+    private async Task UpdateAllAsync()
+    {
+        foreach (var product in Products.Where(p => p.UpdateAvailable).ToList())
+            await product.UpdateAsync();
+    }
 
     public void Navigate(string section)
     {
@@ -195,10 +269,15 @@ public sealed class ShellViewModel : Observable
     }
 
     /// <summary>Products and keys from the website, then each product's newest release.</summary>
-    public async Task LoadAsync()
+    public Task LoadAsync() => LoadAsync(quiet: false);
+
+    /// <param name="quiet">A background check: no spinner, and a failure keeps what is shown.</param>
+    public async Task LoadAsync(bool quiet)
     {
-        Loading = true;
-        LoadError = "";
+        _lastCheck = DateTime.UtcNow;
+        Loading = !quiet;
+        if (!quiet)
+            LoadError = "";
         Raise(nameof(NothingToShow));
         try
         {
@@ -244,7 +323,8 @@ public sealed class ShellViewModel : Observable
         catch (ApiException ex)
         {
             Offline = ex.Status == 0;
-            LoadError = ex.Message;
+            if (!quiet)
+                LoadError = ex.Message;
         }
         finally
         {

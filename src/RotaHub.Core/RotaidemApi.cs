@@ -13,8 +13,19 @@ public sealed record SiteProduct(
     string Id, string Name, string Tagline, string Description, string Version, string Status, string Simulator,
     string Price, string BuyUrl, string ImageUrl, IReadOnlyList<string> Images, IReadOnlyList<string> Features,
     IReadOnlyList<ChangelogEntry> Changelog, bool HasDownload, bool LicenceOnly, string PageUrl,
-    HubRelease? Release = null, string ReleaseProblem = "", WebsiteLicence? Licence = null)
+    HubRelease? Release = null, string ReleaseProblem = "", WebsiteLicence? Licence = null, string DownloadUrl = "")
 {
+    /// <summary>
+    /// The download link and version set in Admin → Products, as a release RotaHub can install and update
+    /// (an installer it runs, or a zip it unpacks). Null without a download or a usable version.
+    /// </summary>
+    public HubRelease? DownloadRelease => HasDownload && HubRelease.ParseVersion(Version) is { } version
+        ? new HubRelease(Id, Name, version, "", DownloadUrl, "", 0, null, null, null, Array.Empty<string>(), Array.Empty<CommunityPart>(), "", "download")
+        : null;
+
+    /// <summary>"msfs2020" when the website lists the product for MSFS 2020, else "msfs2024".</summary>
+    public string Sim => Simulator.Contains("2020") ? "msfs2020" : "msfs2024";
+
     /// <summary>The picture for cards and the hero: the first gallery image, else the cover.</summary>
     public string Picture => Images.FirstOrDefault() ?? ImageUrl;
 
@@ -185,7 +196,7 @@ public sealed class RotaidemApi
             p["images"].Strings.Select(Absolute).ToList(), p["features"].Strings.ToList(),
             p["changelog"].Items.Select(c => new ChangelogEntry(c["version"].Str(), c["date"].Str(), c["notes"].Str())).ToList(),
             p["download_url"].Str().Length > 0 || p["has_download"].Bool(), p["download_gate"].Str() == "licence",
-            Absolute(p["page"].Str("/addons/view?id=" + Uri.EscapeDataString(id))), release, problem, website);
+            Absolute(p["page"].Str("/addons/view?id=" + Uri.EscapeDataString(id))), release, problem, website, Absolute(p["download_url"].Str()));
     }
 
     private static AccountLicence ReadLicence(JsonNode l) =>

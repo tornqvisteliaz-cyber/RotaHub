@@ -46,7 +46,14 @@ public sealed class PackageInstaller
 
     public string Library => string.IsNullOrWhiteSpace(_settings.LibraryDir) ? _paths.DefaultLibrary : _settings.LibraryDir;
 
-    public InstallResult Install(HubRelease release, string packageZip, IProgress<string>? step = null)
+    public InstallResult Install(HubRelease release, string packageZip, IProgress<string>? step = null) =>
+        InstallCore(release, staging => Extract(packageZip, staging), step);
+
+    /// <summary>Like <see cref="Install"/>, from a folder already laid out as a package (app\, community\{folder}\). The folder is used up.</summary>
+    public InstallResult InstallFolder(HubRelease release, string folder, IProgress<string>? step = null) =>
+        InstallCore(release, staging => MoveFolder(folder, staging), step);
+
+    private InstallResult InstallCore(HubRelease release, Action<string> fill, IProgress<string>? step)
     {
         var notes = new List<string>();
         var previous = _store.Get(release.Product);
@@ -78,7 +85,7 @@ public sealed class PackageInstaller
         var versionDir = Path.Combine(productDir, versionName);
         var staging = versionDir + ".new";
         DeleteFolder(staging);
-        Extract(packageZip, staging);
+        fill(staging);
         foreach (var (part, _) in targets)
         {
             if (!Directory.Exists(Path.Combine(staging, "community", part.Folder)))
@@ -293,6 +300,19 @@ public sealed class PackageInstaller
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
             entry.ExtractToFile(file, overwrite: true);
         }
+    }
+
+    /// <summary>Moves a folder, copying when the library is on another drive.</summary>
+    internal static void MoveFolder(string from, string to)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(to))!);
+        if (string.Equals(Path.GetPathRoot(Path.GetFullPath(from)), Path.GetPathRoot(Path.GetFullPath(to)), StringComparison.OrdinalIgnoreCase))
+        {
+            Directory.Move(from, to);
+            return;
+        }
+        CopyTree(from, to);
+        DeleteFolder(from);
     }
 
     private static List<string> CopyTree(string source, string destination)

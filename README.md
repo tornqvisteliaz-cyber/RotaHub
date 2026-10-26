@@ -13,6 +13,10 @@ uninstall them, and manage your licence keys.
   exactly like the product's own installer (same machine id, same `%LOCALAPPDATA%\Rotaidem\{product}\license.json`),
   so an installed product starts already activated. *Add a key* attaches a key to the account
   (`/api/account/licenses/claim`) and activates it.
+- **The website admin drives installs and updates.** A product's download link and version in
+  Admin → Products are enough: RotaHub installs it (installer, MSFS package zip or plain zip) and
+  offers an update when the version goes up. It checks every 5 minutes and when its window comes
+  back, shows a Windows notification, and installs zip updates by itself (Settings).
 - **New products are added on the website.** A product in Admin → Products with a RotaHub package
   (the `rotahub` object in `/api/products`, see [docs/website-admin.md](docs/website-admin.md))
   is installable in RotaHub straight away: no RotaHub update needed.

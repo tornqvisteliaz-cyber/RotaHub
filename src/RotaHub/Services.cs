@@ -155,3 +155,56 @@ public static class Keys
         return text.Length > 0 ? text : null;
     }
 }
+
+/// <summary>
+/// RotaHub's icon in the notification area, and Windows notifications for new updates while
+/// RotaHub is in the background. Clicking one brings RotaHub to the front at that product.
+/// </summary>
+public static class Notifier
+{
+    private static System.Windows.Forms.NotifyIcon? _icon;
+    private static System.Windows.Window? _window;
+    private static Action? _onClick;
+
+    public static void Init(System.Windows.Window window)
+    {
+        _window = window;
+        _icon = new System.Windows.Forms.NotifyIcon
+        {
+            Icon = System.Drawing.Icon.ExtractAssociatedIcon(SelfInstall.CurrentExe),
+            Text = "RotaHub",
+            Visible = true,
+        };
+        _icon.MouseClick += (_, _) => Bring();
+        _icon.BalloonTipClicked += (_, _) =>
+        {
+            Bring();
+            _onClick?.Invoke();
+        };
+        window.Closed += (_, _) =>
+        {
+            _icon.Visible = false;
+            _icon.Dispose();
+            _icon = null;
+        };
+    }
+
+    /// <summary>A Windows notification, only while RotaHub is not the window in front (it shows its own message then).</summary>
+    public static void Show(string title, string text, Action? onClick = null)
+    {
+        if (_icon == null || _window == null || _window.IsActive)
+            return;
+        _onClick = onClick;
+        _icon.ShowBalloonTip(8000, title, text, System.Windows.Forms.ToolTipIcon.None);
+    }
+
+    private static void Bring()
+    {
+        if (_window == null)
+            return;
+        if (_window.WindowState == System.Windows.WindowState.Minimized)
+            _window.WindowState = System.Windows.WindowState.Normal;
+        _window.Show();
+        _window.Activate();
+    }
+}

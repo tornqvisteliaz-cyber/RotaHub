@@ -85,6 +85,7 @@ public sealed class MainViewModel : Observable
 
     public async Task SignOutAsync(string? message = null)
     {
+        App.Shell?.Close();
         await Api.LogoutAsync();
         Sessions.Clear();
         App.Shell = null;

@@ -51,6 +51,9 @@ public sealed class HubSettings
 
     public bool DesktopShortcuts { get; set; } = true;
 
+    /// <summary>Install updates by themselves when RotaHub finds them (not installers, which need you).</summary>
+    public bool AutoUpdate { get; set; } = true;
+
     public static HubSettings Load(HubPaths paths)
     {
         try

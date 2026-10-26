@@ -87,7 +87,14 @@ public sealed class ProductViewModel : Observable
 
     public bool IsInstalled => _installed != null;
     public bool ByRotaHub => _installed?.Kind == "package";
-    public bool CanUninstall => ByRotaHub;
+    public bool CanUninstall => IsInstalled;
+
+    /// <summary>The update runs the product's own installer, which needs the user; RotaHub never starts one by itself.</summary>
+    public bool UpdateNeedsYou => _release?.IsDownload == true &&
+        (Site.DownloadUrl.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || Site.DownloadUrl.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) || Site.DownloadUrl.Length == 0);
+
+    /// <summary>The version an update would bring, for notifications.</summary>
+    public string UpdateVersion => _release?.Version.ToString(3) ?? "";
     public bool UpdateAvailable => _installed != null && _release != null && (_installed.ParsedVersion == null || _release.Version > _installed.ParsedVersion);
     public bool NeedsRepair => ByRotaHub && _problems.Count > 0;
     public IReadOnlyList<string> Problems => _problems;
@@ -100,7 +107,7 @@ public sealed class ProductViewModel : Observable
 
     public string LatestText => _release != null
         ? _release.Version.ToString(3) + (_release.Published.Length >= 10 ? " · " + _release.Published.Substring(0, 10) : "")
-        : _checkingRelease ? "Checking…" : Site.Version.Length > 0 ? Site.Version + " (on rotaidem.com)" : "Not published yet";
+        : _checkingRelease ? "Checking…" : Site.HasDownload ? "Set a version like 1.0.0 in the admin" : "Not published yet";
 
     public string Location => _installed?.AppDir ?? "";
 
@@ -254,7 +261,9 @@ public sealed class ProductViewModel : Observable
         Raise(nameof(IsInstalled), nameof(ByRotaHub), nameof(CanUninstall), nameof(UpdateAvailable), nameof(NeedsRepair), nameof(Problems), nameof(Notes),
             nameof(Links), nameof(InstalledText), nameof(LatestText), nameof(Location), nameof(Badge), nameof(BadgeTone), nameof(CardVersion),
             nameof(PrimaryEnabled), nameof(PrimaryText), nameof(PrimaryIcon), nameof(AccountKey), nameof(LicenceWorksHere), nameof(LicenceTitle),
-            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog), nameof(StatusLine));
+            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog), nameof(StatusLine),
+            nameof(UpdateNeedsYou), nameof(UpdateVersion));
+        _shell.UpdatesChanged();
         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
     }
 
@@ -295,7 +304,13 @@ public sealed class ProductViewModel : Observable
         return LaunchAsync();
     }
 
-    private async Task InstallAsync(bool repair)
+    /// <summary>An automatic update in the background: never asks, skips when the program is open, never launches.</summary>
+    public Task UpdateQuietlyAsync() => UpdateAvailable && !UpdateNeedsYou && !Busy ? InstallAsync(repair: false, quiet: true) : Task.CompletedTask;
+
+    /// <summary>"Update all": every update, asking where it must (open programs, installers).</summary>
+    public Task UpdateAsync() => UpdateAvailable && !Busy ? InstallAsync(repair: false) : Task.CompletedTask;
+
+    private async Task InstallAsync(bool repair, bool quiet = false)
     {
         Busy = true;
         _notes = Array.Empty<string>();
@@ -310,16 +325,20 @@ public sealed class ProductViewModel : Observable
             }
 
             var fresh = !IsInstalled;
+            var release = _release;
             InstallResult? result = null;
-            while (result == null)
+            while (true)
             {
                 try
                 {
-                    result = await _shell.Main.Hub.InstallAsync(_release, Reporter(), CancellationToken.None);
+                    result = await _shell.Main.Hub.InstallAsync(release, Site, Hub, Reporter(), CancellationToken.None);
+                    break;
                 }
                 catch (ProgramsOpenException open)
                 {
                     Indeterminate = false;
+                    if (quiet)
+                        return; // an automatic update waits until the program is closed
                     if (!await _shell.Main.AskAsync($"Close {Name}?",
                             $"{string.Join(", ", open.Names)} is open. RotaHub closes it to {(fresh ? "install" : "update")} {Name}. Save anything you are working on first.",
                             "Close and continue"))
@@ -328,20 +347,26 @@ public sealed class ProductViewModel : Observable
                     await Processes.CloseAsync(open.Names, TimeSpan.FromSeconds(8));
                 }
             }
+            if (result == null)
+            {
+                _shell.Toast($"{Name} was downloaded but is not something RotaHub can install by itself, so it is shown in Explorer.");
+                return;
+            }
             _notes = result.Notes;
 
             if (Hub.UsesLicence && !LicenceWorksHere && AccountKey != null)
                 await ActivateAsync(quiet: true);
 
             Refresh();
-            _shell.Toast(repair ? $"{Name} is repaired." : fresh ? $"{Name} {_release.Version.ToString(3)} is installed." : $"{Name} is updated to {_release.Version.ToString(3)}.");
-            if (fresh && _shell.Main.Settings.LaunchAfterInstall && _installed?.ExePath != null)
+            _shell.Toast(repair ? $"{Name} is repaired." : fresh ? $"{Name} {release.Version.ToString(3)} is installed." : $"{Name} is updated to {release.Version.ToString(3)}.");
+            if (fresh && !quiet && _shell.Main.Settings.LaunchAfterInstall && _installed?.ExePath != null)
                 Start();
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException or ApiException or System.ComponentModel.Win32Exception)
         {
             Log.Error("Install " + Hub.Id, ex);
-            _shell.Toast(ex.Message, error: true);
+            if (!quiet)
+                _shell.Toast(ex.Message, error: true);
             Refresh();
         }
         finally
@@ -416,6 +441,19 @@ public sealed class ProductViewModel : Observable
     {
         if (_installed == null)
             return;
+        if (_installed.Kind == "setup")
+        {
+            // Its own installer put it there, so Windows' Apps list uninstalls it.
+            if (await _shell.Main.AskAsync($"Uninstall {Name}?",
+                    $"{Name} was installed with its own installer, so it is uninstalled in Windows: Settings → Apps opens, find {Name} there.",
+                    "Open Apps"))
+            {
+                _shell.Main.Hub.Installed.Remove(Hub.Id);
+                Os.Open("ms-settings:appsfeatures");
+                Refresh();
+            }
+            return;
+        }
         var dialog = new DialogViewModel();
         if (Hub.UsesLicence && LicenceWorksHere)
         {

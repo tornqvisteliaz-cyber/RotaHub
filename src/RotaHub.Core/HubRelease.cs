@@ -18,8 +18,16 @@ public sealed record HubRelease(
     string? AppDir, string? AppExe, string? Shortcut, IReadOnlyList<string> Processes, IReadOnlyList<CommunityPart> Community, string Notes,
     string Source = "signed")
 {
-    /// <summary>"signed" (a signed rotahub.jws, e.g. from GitHub) or "website" (Admin → Products on rotaidem.com).</summary>
+    /// <summary>
+    /// "signed" (a signed rotahub.jws, e.g. from GitHub), "website" (the RotaHub section of Admin → Products)
+    /// or "download" (just the product's download link and version in Admin → Products).
+    /// </summary>
     public bool IsWebsite => Source == "website";
+
+    public bool IsDownload => Source == "download";
+
+    /// <summary>Which source wins when two have the same version: signed, then website, then download.</summary>
+    internal int Rank => Source switch { "signed" => 2, "website" => 1, _ => 0 };
 
     /// <summary>A licence-only package whose link the website hands out at download time.</summary>
     public bool NeedsDownloadLink => PackageUrl.Length == 0;
