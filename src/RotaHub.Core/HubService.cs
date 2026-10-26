@@ -79,8 +79,7 @@ public sealed class HubService
         var record = Installed.Get(product.Id);
         if (record != null && (record.Kind != "setup" || product.LegacyExe == null))
             return record;
-        // Installed by its own setup: the program file says what is really there (it may have
-        // updated itself, or been uninstalled in Windows since).
+        // Installed by its own setup: the program file says whether it is still there.
         if (product.LegacyExe == null)
             return null;
         var exe = HubCatalog.Expand(product.LegacyExe);
@@ -88,6 +87,15 @@ public sealed class HubService
             return null;
         var info = FileVersionInfo.GetVersionInfo(exe);
         var version = new Version(info.FileMajorPart, info.FileMinorPart, info.FileBuildPart);
+        if (record != null && HubRelease.ParseVersion(record.Version) is { } known)
+        {
+            // RotaHub installed this version: trust the website's number. A program file's own version
+            // can be stale (HeavyPro's test builds all say 0.4.0), which would offer the same update forever.
+            // If the file changed since (it updated itself), the higher of the two counts.
+            if (record.ExeStamp != ExeStamp(exe) && version > known)
+                record.Version = version.ToString(3);
+            return record;
+        }
         return new InstalledProduct
         {
             Product = product.Id,
@@ -153,9 +161,14 @@ public sealed class HubService
 
         if (extension is ".exe" or ".msi")
         {
-            progress?.Report(new InstallProgress("Running the installer", null, "Finish the installer's steps."));
+            var exe = product.LegacyExe == null ? null : HubCatalog.Expand(product.LegacyExe);
+            var folder = exe == null ? null : Path.GetDirectoryName(exe)!;
+            var before = folder == null ? 0 : FolderStamp(folder);
+            var updating = exe != null && File.Exists(exe) && product.UpdateArgs != null;
+            progress?.Report(new InstallProgress(updating ? $"Updating {site.Name}" : "Running the installer", null,
+                updating ? "" : "Finish the installer's steps."));
             var exitCode = 0;
-            using (var process = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
+            using (var process = Process.Start(new ProcessStartInfo(file, updating ? product.UpdateArgs! : "") { UseShellExecute = true }))
             {
                 if (process != null)
                 {
@@ -167,13 +180,19 @@ public sealed class HubService
             // A cancelled or failed installer: nothing changed, so nothing is remembered.
             if (exitCode != 0)
                 throw new InvalidOperationException($"The {site.Name} installer closed without installing (code {exitCode}).");
+            // Some installers return 0 when closed without installing: when RotaHub knows the program,
+            // it must be there and something in its folder must have been written, or nothing is remembered.
+            // (The folder, not the exe: an installer may restore the exe's original file time.)
+            if (exe != null && (!File.Exists(exe) || FolderStamp(folder!) == before))
+                throw new InvalidOperationException($"The {site.Name} installer closed without installing it.");
+            var after = exe == null ? null : ExeStamp(exe);
             var record = Installed.Get(product.Id) ?? new InstalledProduct { Product = product.Id };
             record.Kind = "setup";
             record.Version = release.Version.ToString(3);
             record.InstalledAt = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            if (product.LegacyExe != null)
+            record.ExeStamp = after ?? "";
+            if (exe != null)
             {
-                var exe = HubCatalog.Expand(product.LegacyExe);
                 record.AppDir = Path.GetDirectoryName(exe)!;
                 record.AppExe = Path.GetFileName(exe);
                 record.Processes = new List<string> { Path.GetFileNameWithoutExtension(exe) };
@@ -248,6 +267,28 @@ public sealed class HubService
         using var process = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true });
         if (process != null)
             await Task.Run(() => process.WaitForExit(), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Size and last write time of a file: changes whenever an installer replaces it. Null when it is missing.</summary>
+    public static string? ExeStamp(string file)
+    {
+        var info = new FileInfo(file);
+        return info.Exists ? info.Length.ToString(CultureInfo.InvariantCulture) + ":" + info.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture) : null;
+    }
+
+    /// <summary>The newest file time in a folder: changes whenever an installer writes anything there.</summary>
+    public static long FolderStamp(string folder)
+    {
+        try
+        {
+            return Directory.Exists(folder)
+                ? Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories).Select(f => File.GetLastWriteTimeUtc(f).Ticks).DefaultIfEmpty(0).Max()
+                : 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return 0;
+        }
     }
 
     public static string Size(long received, long total)

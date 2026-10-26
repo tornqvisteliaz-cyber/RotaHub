@@ -12,8 +12,9 @@ namespace RotaHub.Core;
 /// <param name="LicenceStore">The folder under %LOCALAPPDATA%\Rotaidem that the product reads its key from.</param>
 /// <param name="ManifestUrl">The signed release manifest (rotahub.jws) of the newest release.</param>
 /// <param name="LegacyExe">The exe its own setup installs, so an existing install is recognised and taken over.</param>
+/// <param name="UpdateArgs">Arguments for the product's own installer when it updates an installed copy.</param>
 public sealed record HubProduct(string Id, string Name, string[] LicenceProductIds, string LicenceStore, string KeyPrefix,
-    string? ManifestUrl, string? LegacyExe)
+    string? ManifestUrl, string? LegacyExe, string? UpdateArgs = null)
 {
     public bool UsesLicence => LicenceProductIds.Length > 0;
 
@@ -27,7 +28,10 @@ public static class HubCatalog
     public static readonly HubProduct HeavyPro = new(
         "rotaidem-heavypro", "HeavyPro", new[] { "rotaidem-heavypro", "heavypro" }, "heavypro", LicenseKey.HeavyProPrefix,
         "https://github.com/tornqvisteliaz-cyber/heavypro/releases/latest/download/rotahub.jws",
-        @"%LOCALAPPDATA%\HeavyPro\HeavyPro.exe");
+        @"%LOCALAPPDATA%\HeavyPro\HeavyPro.exe",
+        // HeavyProSetup's own update mode (its Update button uses it too): with the licence already on
+        // this PC it closes HeavyPro, installs and opens it again without asking anything.
+        "/update");
 
     public static readonly IReadOnlyList<HubProduct> All = new[] { HeavyPro };
 

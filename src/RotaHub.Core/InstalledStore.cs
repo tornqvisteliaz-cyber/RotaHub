@@ -29,6 +29,12 @@ public sealed class InstalledProduct
     /// <summary>"package" (from a signed release) or "setup" (the product's own installer ran).</summary>
     public string Kind { get; set; } = "package";
 
+    /// <summary>
+    /// For "setup": size and time of the program file right after RotaHub ran the installer. While it is
+    /// unchanged, the version is the one from the website, whatever the file itself claims.
+    /// </summary>
+    public string ExeStamp { get; set; } = "";
+
     [ScriptIgnore]
     public Version? ParsedVersion => HubRelease.ParseVersion(Version);
 
