@@ -21,6 +21,7 @@ public sealed class ShellViewModel : Observable
     private bool _updatingSelf;
     private string _selfUpdateStep = "";
     private HubConfig _config = HubConfig.Empty;
+    private bool _whatsNewChecked;
 
     public ShellViewModel(MainViewModel main, Account account)
     {
@@ -44,6 +45,7 @@ public sealed class ShellViewModel : Observable
         DismissToastCommand = new Command(() => Toast(""));
         NoticeCommand = new Command(() => { if (Config.Notice is { Link.Length: > 0 } n) Os.Open(n.Link); return Task.CompletedTask; });
         HelpCommand = new Command(() => Os.Open(Config.HelpUrl.Length > 0 ? Config.HelpUrl : Main.Api.BaseUrl + "/support"));
+        WhatsNewCommand = new Command(ShowUpdateNotesAsync);
     }
 
     public MainViewModel Main { get; }
@@ -180,6 +182,7 @@ public sealed class ShellViewModel : Observable
     public Command DismissToastCommand { get; }
     public Command NoticeCommand { get; }
     public Command HelpCommand { get; }
+    public Command WhatsNewCommand { get; }
 
     public void Navigate(string section)
     {
@@ -230,6 +233,7 @@ public sealed class ShellViewModel : Observable
             await licencesTask;
             await configTask;
             Offline = false;
+            _ = ShowWhatsNewAfterUpdateAsync();
 
             var visible = products.Where(p => !p.IsDraft).ToList();
             // Keep the existing view models (a running install keeps its progress).
@@ -278,6 +282,40 @@ public sealed class ShellViewModel : Observable
             Raise(nameof(NothingToShow));
         }
         _ = CheckSelfUpdateAsync(manual: false);
+    }
+
+    /// <summary>The update bar's "What's new": the website's notes for that version, else the release's own.</summary>
+    private Task ShowUpdateNotesAsync()
+    {
+        if (SelfUpdate == null)
+            return Task.CompletedTask;
+        var version = SelfUpdate.Version.ToString(3);
+        var notes = Config.NotesFor(SelfUpdate.Version)?.Notes is { Length: > 0 } n ? n : SelfUpdate.Notes;
+        return Main.AskAsync($"What's new in RotaHub {version}", notes.Length > 0 ? notes : "There are no notes for this version yet.", "Close", cancel: "");
+    }
+
+    /// <summary>Once after RotaHub updated itself: the notes for the version now running (Admin → RotaHub → RotaHub versions).</summary>
+    private async Task ShowWhatsNewAfterUpdateAsync()
+    {
+        if (_whatsNewChecked)
+            return;
+        _whatsNewChecked = true;
+        var current = SelfInstall.Current.ToString(3);
+        var settings = Main.Settings;
+        if (settings.LastVersionSeen == current)
+            return;
+        var updated = settings.LastVersionSeen.Length > 0; // a fresh install has nothing "new" to tell
+        settings.LastVersionSeen = current;
+        try
+        {
+            settings.Save(Main.Paths);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            Log.Error("Saving the settings", ex);
+        }
+        if (updated && Config.NotesFor(SelfInstall.Current) is { Notes.Length: > 0 } entry)
+            await Main.AskAsync($"What's new in RotaHub {current}", entry.Notes, "Got it", cancel: "");
     }
 
     /// <summary>The website's RotaHub settings; on a failure the last ones stay in use.</summary>

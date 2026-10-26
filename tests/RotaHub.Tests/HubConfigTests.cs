@@ -119,6 +119,25 @@ public class HubConfigTests
     }
 
     [Fact]
+    public void Reads_rotahubs_own_version_history()
+    {
+        var config = Read(new Dictionary<string, object>
+        {
+            ["changelog"] = new object[]
+            {
+                new Dictionary<string, object> { ["version"] = "0.2.0", ["date"] = "2026-10-26", ["notes"] = "Messages from the website\nNew colours" },
+                new Dictionary<string, object> { ["version"] = "", ["notes"] = "no version: left out" },
+                new Dictionary<string, object> { ["version"] = "0.1.0", ["notes"] = "First release" },
+            }
+        });
+        Assert.Equal(new[] { "0.2.0", "0.1.0" }, config.Changelog.Select(c => c.Version));
+        Assert.Equal("Messages from the website\nNew colours", config.NotesFor(new Version(0, 2, 0, 0))!.Notes);
+        Assert.Equal("First release", config.NotesFor(new Version(0, 1, 0))!.Notes);
+        Assert.Null(config.NotesFor(new Version(0, 3, 0)));
+        Assert.Empty(HubConfig.Empty.Changelog);
+    }
+
+    [Fact]
     public void The_website_settings_change_the_catalogue_but_never_the_exe()
     {
         try

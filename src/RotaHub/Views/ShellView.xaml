@@ -109,9 +109,13 @@
                         <TextBlock Text="{Binding SelfUpdateText}" Foreground="{StaticResource Bg}" FontSize="14" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding SelfUpdateStep}" Foreground="#5A6067" FontSize="13" Margin="14,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
-                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Update and restart" Command="{Binding SelfUpdateCommand}"
-                            Style="{StaticResource SmPrimary}" Background="{StaticResource Navy}" BorderBrush="{StaticResource Navy}"
-                            Foreground="{StaticResource White}" Tag="{StaticResource NavyHover}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Content="What's new" Command="{Binding WhatsNewCommand}" Style="{StaticResource Sm}" Margin="0,0,8,0"
+                                Foreground="{StaticResource Navy}" BorderBrush="#5A6067" />
+                        <Button Content="Update and restart" Command="{Binding SelfUpdateCommand}"
+                                Style="{StaticResource SmPrimary}" Background="{StaticResource Navy}" BorderBrush="{StaticResource Navy}"
+                                Foreground="{StaticResource White}" Tag="{StaticResource NavyHover}" />
+                    </StackPanel>
                 </Grid>
             </Border>
 

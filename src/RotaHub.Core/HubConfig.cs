@@ -37,8 +37,10 @@ public sealed class HubConfig
     private static readonly Regex Prefix = new("^[A-Z0-9]{2,8}$");
     private static readonly Regex VersionText = new(@"^\d{1,4}\.\d{1,4}\.\d{1,4}$");
 
-    public HubConfig(HubNotice? notice, Version? minVersion, string helpUrl, IReadOnlyList<HubProductSettings> products, HubLook? look = null)
+    public HubConfig(HubNotice? notice, Version? minVersion, string helpUrl, IReadOnlyList<HubProductSettings> products, HubLook? look = null,
+        IReadOnlyList<ChangelogEntry>? changelog = null)
     {
+        Changelog = changelog ?? Array.Empty<ChangelogEntry>();
         Notice = notice;
         MinVersion = minVersion;
         HelpUrl = helpUrl;
@@ -47,6 +49,13 @@ public sealed class HubConfig
     }
 
     public HubLook Look { get; }
+
+    /// <summary>RotaHub's own version history (Admin → RotaHub → RotaHub versions), newest first.</summary>
+    public IReadOnlyList<ChangelogEntry> Changelog { get; }
+
+    /// <summary>The notes the website has for a RotaHub version; null when there are none.</summary>
+    public ChangelogEntry? NotesFor(Version version) =>
+        Changelog.FirstOrDefault(c => System.Version.TryParse(c.Version, out var v) && HubRelease.Normalize(v) == HubRelease.Normalize(version));
 
     public HubNotice? Notice { get; }
 
@@ -93,7 +102,10 @@ public sealed class HubConfig
         var look = new HubLook(Colour.IsMatch(colour) ? colour : null,
             Image(l["login_image"].Str(), absolute), Image(l["library_image"].Str(), absolute), Image(l["product_image"].Str(), absolute),
             Clip(l["login_title"].Str(), 60), Clip(l["login_text"].Str(), 300), Clip(l["library_title"].Str(), 40), Clip(l["library_text"].Str(), 300));
-        return new HubConfig(notice, VersionText.IsMatch(min) ? Version.Parse(min) : null, Link(data["help_url"].Str(), absolute), products, look);
+        var changelog = data["changelog"].Items.Take(50)
+            .Select(c => new ChangelogEntry(Clip(c["version"].Str(), 30), Clip(c["date"].Str(), 10), Clip(c["notes"].Str(), 3000)))
+            .Where(c => c.Version.Length > 0).ToList();
+        return new HubConfig(notice, VersionText.IsMatch(min) ? Version.Parse(min) : null, Link(data["help_url"].Str(), absolute), products, look, changelog);
     }
 
     /// <summary>The settings saved by the last successful read, so RotaHub looks right from the first screen and offline.</summary>

@@ -54,6 +54,9 @@ public sealed class HubSettings
 
     public bool DesktopShortcuts { get; set; } = true;
 
+    /// <summary>The RotaHub version that last started, to show "What's new" once after an update.</summary>
+    public string LastVersionSeen { get; set; } = "";
+
     public static HubSettings Load(HubPaths paths)
     {
         try
