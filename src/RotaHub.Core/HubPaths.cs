@@ -23,6 +23,9 @@ public sealed class HubPaths
 
     public string Log => Path.Combine(Root, "rotahub.log");
 
+    /// <summary>The website's RotaHub settings from the last refresh (Admin → RotaHub).</summary>
+    public string HubConfigCache => Path.Combine(Root, "cache", "hub.json");
+
     public string DefaultLibrary => Path.Combine(Path.GetDirectoryName(Root)!, "Library");
 
     /// <summary>Writes a file through a temporary copy, so a crash never leaves half a file.</summary>
@@ -53,6 +56,8 @@ public sealed class HubSettings
 
     /// <summary>Install updates by themselves when RotaHub finds them (not installers, which need you).</summary>
     public bool AutoUpdate { get; set; } = true;
+    /// <summary>The RotaHub version that last started, to show "What's new" once after an update.</summary>
+    public string LastVersionSeen { get; set; } = "";
 
     public static HubSettings Load(HubPaths paths)
     {

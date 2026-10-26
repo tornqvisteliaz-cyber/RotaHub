@@ -28,6 +28,9 @@ public readonly struct JsonNode
 
     public bool Exists => _value != null;
 
+    /// <summary>The parsed value itself, to write it out again (JsonNode.Write).</summary>
+    public object? Raw => _value;
+
     public string Str(string fallback = "") => _value switch
     {
         null => fallback,

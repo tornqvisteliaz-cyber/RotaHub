@@ -30,7 +30,7 @@ public sealed class ProductViewModel : Observable
         _shell = shell;
         _site = site;
         Hub = HubCatalog.For(site);
-        _picture = ImageCache.Builtin(FallbackPicture(site.Id));
+        _picture = DefaultPicture(shell, site.Id);
         OpenCommand = new Command(() => _shell.Open(this));
         BackCommand = new Command(() => _shell.Navigate("library"));
         PrimaryCommand = new Command(PrimaryAsync, () => !Busy && PrimaryEnabled);
@@ -222,7 +222,8 @@ public sealed class ProductViewModel : Observable
     public void Update(SiteProduct site)
     {
         _site = site;
-        Hub = HubCatalog.For(site);
+        if (!Busy)
+            Hub = HubCatalog.For(site); // the website's RotaHub settings may have changed
         Raise(nameof(Site), nameof(Name), nameof(Tagline), nameof(Kicker), nameof(Description), nameof(Features), nameof(Changelog), nameof(Price));
         Refresh();
         _ = LoadPictureAsync();
@@ -269,14 +270,14 @@ public sealed class ProductViewModel : Observable
 
     private async Task LoadPictureAsync()
     {
-        var image = await ImageCache.GetAsync(Site.Picture);
-        if (image != null)
-            Picture = image;
+        // Admin → RotaHub can give the product its own picture in the app; else the website's, else the default.
+        var url = HubCatalog.Config.For(Site.Id)?.Image is { Length: > 0 } own ? own : Site.Picture;
+        Picture = await ImageCache.GetAsync(url) ?? DefaultPicture(_shell, Site.Id);
         var urls = Site.Images.Count > 0 ? Site.Images : Site.ImageUrl.Length > 0 ? new[] { Site.ImageUrl } : Array.Empty<string>();
         var pictures = new List<ImageSource>();
-        foreach (var url in urls.Distinct())
+        foreach (var image in urls.Distinct())
         {
-            if (await ImageCache.GetAsync(url) is { } picture)
+            if (await ImageCache.GetAsync(image) is { } picture)
                 pictures.Add(picture);
         }
         Gallery.Clear();
@@ -287,7 +288,13 @@ public sealed class ProductViewModel : Observable
         }
     }
 
-    /// <summary>A product with no pictures on the website yet gets one of the site's own photos, the same one each time.</summary>
+    /// <summary>
+    /// The picture for a product without one: the website's default (Admin → RotaHub → Look of the app),
+    /// else one of the site's own photos, the same one each time.
+    /// </summary>
+    private static ImageSource DefaultPicture(ShellViewModel shell, string id) =>
+        shell.Main.Config.Look.ProductImage.Length > 0 ? shell.Main.ProductPicture : ImageCache.Builtin(FallbackPicture(id));
+
     private static string FallbackPicture(string id)
     {
         var photos = new[] { "approach", "night", "clouds", "hero" };

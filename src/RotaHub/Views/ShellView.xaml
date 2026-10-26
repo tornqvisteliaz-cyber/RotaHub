@@ -66,6 +66,13 @@
                     </StackPanel>
                 </Border>
 
+                <Button DockPanel.Dock="Bottom" Style="{StaticResource MutedLink}" Command="{Binding HelpCommand}" Margin="24,0,0,10"
+                        HorizontalAlignment="Left" FontSize="13" ToolTip="Questions about RotaHub or a product">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Help" />
+                        <TextBlock Text="&#xE8A7;" Style="{StaticResource Icon}" FontSize="11" Margin="6,1,0,0" />
+                    </StackPanel>
+                </Button>
                 <Button DockPanel.Dock="Bottom" Style="{StaticResource MutedLink}" Command="{Binding WebsiteCommand}" Margin="24,0,0,18"
                         HorizontalAlignment="Left" FontSize="13">
                     <StackPanel Orientation="Horizontal">
@@ -114,6 +121,16 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
+            <StackPanel>
+            <!-- Too old for the website (Admin → RotaHub → Lowest version allowed). -->
+            <Border Background="{StaticResource DangerSoft}" BorderBrush="{StaticResource Danger}" BorderThickness="0,0,0,1"
+                    Visibility="{Binding TooOldText, Converter={StaticResource Show}}">
+                <StackPanel Orientation="Horizontal" Margin="24,0" MinHeight="44">
+                    <TextBlock Text="&#xE7BA;" Style="{StaticResource Icon}" Foreground="{StaticResource Danger}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding TooOldText}" Foreground="{StaticResource Ink}" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
             <!-- RotaHub update, like the site's announcement bar. -->
             <Border Background="{StaticResource Ink}" Visibility="{Binding SelfUpdate, Converter={StaticResource Show}}">
                 <Grid Margin="24,0" MinHeight="44">
@@ -122,11 +139,50 @@
                         <TextBlock Text="{Binding SelfUpdateText}" Foreground="{StaticResource Bg}" FontSize="14" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding SelfUpdateStep}" Foreground="#5A6067" FontSize="13" Margin="14,0,0,0" VerticalAlignment="Center" />
                     </StackPanel>
-                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Update and restart" Command="{Binding SelfUpdateCommand}"
-                            Style="{StaticResource SmPrimary}" Background="{StaticResource Navy}" BorderBrush="{StaticResource Navy}"
-                            Foreground="{StaticResource White}" Tag="{StaticResource NavyHover}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Content="What's new" Command="{Binding WhatsNewCommand}" Style="{StaticResource Sm}" Margin="0,0,8,0"
+                                Foreground="{StaticResource Navy}" BorderBrush="#5A6067" />
+                        <Button Content="Update and restart" Command="{Binding SelfUpdateCommand}"
+                                Style="{StaticResource SmPrimary}" Background="{StaticResource Navy}" BorderBrush="{StaticResource Navy}"
+                                Foreground="{StaticResource White}" Tag="{StaticResource NavyHover}" />
+                    </StackPanel>
                 </Grid>
             </Border>
+
+            <!-- The message from the website (Admin → RotaHub → Message in the app). -->
+            <Border Visibility="{Binding NoticeText, Converter={StaticResource Show}}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource Navy2}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NoticeWarning}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Warn}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid Margin="24,0" MinHeight="44">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding NoticeText}" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,10">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NoticeWarning}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Navy}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Button Grid.Column="1" Content="Open" Style="{StaticResource Sm}" Command="{Binding NoticeCommand}" Margin="16,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding NoticeHasLink, Converter={StaticResource Show}}" />
+                </Grid>
+            </Border>
+            </StackPanel>
 
             <ContentControl Grid.Row="1" Content="{Binding Page}" Focusable="False" />
 

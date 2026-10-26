@@ -37,15 +37,42 @@ public static class HubCatalog
         "https://github.com/tornqvisteliaz-cyber/rotahub/releases/latest/download/rotahub.jws", null);
 
     /// <summary>
+    /// Settings from the website (Admin → RotaHub), read on every refresh. They can point a product at
+    /// another signed release file or add the licence details of a product RotaHub does not know yet.
+    /// They never set an exe to run: LegacyExe stays built in.
+    /// </summary>
+    public static HubConfig Config { get; set; } = HubConfig.Empty;
+
+    /// <summary>
     /// How RotaHub handles a website product: the built-in entry for products that have one (HeavyPro's
-    /// signed GitHub releases and its older setup), otherwise what the website admin set up for it.
-    /// A product without licence settings on the website installs without a key.
+    /// signed GitHub releases and its older setup), otherwise the licence details from the product's
+    /// RotaHub section in Admin → Products; Admin → RotaHub's per-product settings go on top of either.
+    /// A product with no licence details anywhere installs without a key.
     /// </summary>
     public static HubProduct For(SiteProduct product)
     {
-        var known = All.FirstOrDefault(p => p.Matches(product.Id));
-        if (known != null)
-            return known;
+        var builtIn = All.FirstOrDefault(p => p.Matches(product.Id));
+        var basis = builtIn ?? FromProduct(product);
+        var settings = Config.For(product.Id) ?? (builtIn != null ? SettingsFor(builtIn) : null);
+        return settings == null ? basis : Apply(basis, settings);
+    }
+
+    /// <summary>The built-in products plus those the website gives licence details for.</summary>
+    public static IEnumerable<HubProduct> Known =>
+        All.Select(p => SettingsFor(p) is { } s ? Apply(p, s) : p)
+            .Concat(Config.Products.Where(s => s.LicenceIds.Count > 0 && !All.Any(p => p.Matches(s.Id)))
+                .Select(s => Apply(new HubProduct(s.Id, s.Id, Array.Empty<string>(), s.Id, "", null, null), s)));
+
+    /// <summary>The product a licence key belongs to, among the website's products and the known ones.</summary>
+    public static HubProduct? ForLicence(AccountLicence licence, IEnumerable<HubProduct>? products = null) =>
+        (products ?? Enumerable.Empty<HubProduct>()).Concat(Known).FirstOrDefault(p => p.UsesLicence && p.Matches(licence.ProductId));
+
+    /// <summary>The product a typed key belongs to, by its prefix (HPRO-… is HeavyPro).</summary>
+    public static HubProduct? ForKey(string key, IEnumerable<HubProduct>? products = null) =>
+        (products ?? Enumerable.Empty<HubProduct>()).Concat(Known).FirstOrDefault(p => p.KeyPrefix.Length > 0 && key.StartsWith(p.KeyPrefix + "-", StringComparison.Ordinal));
+
+    private static HubProduct FromProduct(SiteProduct product)
+    {
         var licence = product.Licence;
         if (licence == null)
             return new HubProduct(product.Id, product.Name, Array.Empty<string>(), product.Id, "", null, null);
@@ -54,13 +81,16 @@ public static class HubCatalog
         return new HubProduct(product.Id, product.Name, ids, store, licence.Prefix, null, null);
     }
 
-    /// <summary>The product a licence key belongs to, among the website's products and the built-in ones.</summary>
-    public static HubProduct? ForLicence(AccountLicence licence, IEnumerable<HubProduct> known) =>
-        known.Concat(All).FirstOrDefault(p => p.UsesLicence && p.Matches(licence.ProductId));
+    private static HubProductSettings? SettingsFor(HubProduct product) =>
+        Config.For(product.Id) ?? Config.Products.FirstOrDefault(s => product.Matches(s.Id));
 
-    /// <summary>The product a typed key belongs to, by its prefix (HPRO-… is HeavyPro).</summary>
-    public static HubProduct? ForKey(string key, IEnumerable<HubProduct> known) =>
-        known.Concat(All).FirstOrDefault(p => p.KeyPrefix.Length > 0 && key.StartsWith(p.KeyPrefix + "-", StringComparison.Ordinal));
+    internal static HubProduct Apply(HubProduct product, HubProductSettings settings) => product with
+    {
+        ManifestUrl = settings.ManifestUrl ?? product.ManifestUrl,
+        LicenceProductIds = settings.LicenceIds.Count > 0 ? settings.LicenceIds.ToArray() : product.LicenceProductIds,
+        LicenceStore = settings.LicenceStore ?? product.LicenceStore,
+        KeyPrefix = settings.KeyPrefix ?? product.KeyPrefix,
+    };
 
     public static string Expand(string path) => Environment.ExpandEnvironmentVariables(path);
 }

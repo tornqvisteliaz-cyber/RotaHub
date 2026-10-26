@@ -20,6 +20,8 @@ public sealed class ShellViewModel : Observable
     private HubRelease? _selfUpdate;
     private bool _updatingSelf;
     private string _selfUpdateStep = "";
+    private HubConfig _config = HubConfig.Empty;
+    private bool _whatsNewChecked;
 
     public ShellViewModel(MainViewModel main, Account account)
     {
@@ -46,6 +48,9 @@ public sealed class ShellViewModel : Observable
         // minutes, and whenever RotaHub's window is brought back after a while.
         _checkTimer.Tick += (_, _) => _ = CheckNowAsync();
         _checkTimer.Start();
+        NoticeCommand = new Command(() => { if (Config.Notice is { Link.Length: > 0 } n) Os.Open(n.Link); return Task.CompletedTask; });
+        HelpCommand = new Command(() => Os.Open(Config.HelpUrl.Length > 0 ? Config.HelpUrl : Main.Api.BaseUrl + "/support"));
+        WhatsNewCommand = new Command(ShowUpdateNotesAsync);
     }
 
     public MainViewModel Main { get; }
@@ -157,6 +162,27 @@ public sealed class ShellViewModel : Observable
 
     public string Version => "RotaHub " + SelfInstall.Current.ToString(3);
 
+    /// <summary>RotaHub's settings from the website (Admin → RotaHub).</summary>
+    public HubConfig Config
+    {
+        get => _config;
+        private set
+        {
+            if (Set(ref _config, value))
+                Raise(nameof(NoticeText), nameof(NoticeWarning), nameof(NoticeHasLink), nameof(TooOldText));
+        }
+    }
+
+    public string NoticeText => Config.Notice?.Text ?? "";
+
+    public bool NoticeWarning => Config.Notice?.Warning == true;
+
+    public bool NoticeHasLink => Config.Notice?.Link.Length > 0;
+
+    public string TooOldText => Config.TooOld(SelfInstall.Current)
+        ? $"This RotaHub ({SelfInstall.Current.ToString(3)}) is older than Rotaidem supports. Update to {Config.MinVersion!.ToString(3)} or newer before installing or updating products."
+        : "";
+
     public Command NavigateCommand { get; }
     public Command RefreshCommand { get; }
     public Command SignOutCommand { get; }
@@ -233,6 +259,9 @@ public sealed class ShellViewModel : Observable
         foreach (var product in Products.Where(p => p.UpdateAvailable).ToList())
             await product.UpdateAsync();
     }
+    public Command NoticeCommand { get; }
+    public Command HelpCommand { get; }
+    public Command WhatsNewCommand { get; }
 
     public void Navigate(string section)
     {
@@ -283,9 +312,12 @@ public sealed class ShellViewModel : Observable
         {
             var productsTask = Main.Api.ProductsAsync();
             var licencesTask = LoadLicencesAsync();
+            var configTask = LoadConfigAsync();
             var products = await productsTask;
             await licencesTask;
+            await configTask;
             Offline = false;
+            _ = ShowWhatsNewAfterUpdateAsync();
 
             var visible = products.Where(p => !p.IsDraft).ToList();
             // Keep the existing view models (a running install keeps its progress).
@@ -304,8 +336,12 @@ public sealed class ShellViewModel : Observable
                     vm.Update(site);
                 }
             }
-            // Installed first, then the website's order.
-            var ordered = Products.OrderByDescending(p => p.IsInstalled).ThenBy(p => visible.FindIndex(s => s.Id == p.Site.Id)).ToList();
+            // Hidden in Admin → RotaHub: gone from the library, unless it is on this PC (it can still be updated and uninstalled).
+            foreach (var hidden in Products.Where(vm => Config.For(vm.Site.Id)?.Hidden == true && !vm.IsInstalled && !vm.Busy).ToList())
+                Products.Remove(hidden);
+            // Installed first, then pinned ones, then the website's order.
+            var ordered = Products.OrderByDescending(p => p.IsInstalled).ThenByDescending(p => Config.For(p.Site.Id)?.Featured == true)
+                .ThenBy(p => visible.FindIndex(s => s.Id == p.Site.Id)).ToList();
             for (var i = 0; i < ordered.Count; i++)
             {
                 var at = Products.IndexOf(ordered[i]);
@@ -332,6 +368,54 @@ public sealed class ShellViewModel : Observable
             Raise(nameof(NothingToShow), nameof(Featured));
         }
         _ = CheckSelfUpdateAsync(manual: false);
+    }
+
+    /// <summary>The update bar's "What's new": the website's notes for that version, else the release's own.</summary>
+    private Task ShowUpdateNotesAsync()
+    {
+        if (SelfUpdate == null)
+            return Task.CompletedTask;
+        var version = SelfUpdate.Version.ToString(3);
+        var notes = Config.NotesFor(SelfUpdate.Version)?.Notes is { Length: > 0 } n ? n : SelfUpdate.Notes;
+        return Main.AskAsync($"What's new in RotaHub {version}", notes.Length > 0 ? notes : "There are no notes for this version yet.", "Close", cancel: "");
+    }
+
+    /// <summary>Once after RotaHub updated itself: the notes for the version now running (Admin → RotaHub → RotaHub versions).</summary>
+    private async Task ShowWhatsNewAfterUpdateAsync()
+    {
+        if (_whatsNewChecked)
+            return;
+        _whatsNewChecked = true;
+        var current = SelfInstall.Current.ToString(3);
+        var settings = Main.Settings;
+        if (settings.LastVersionSeen == current)
+            return;
+        var updated = settings.LastVersionSeen.Length > 0; // a fresh install has nothing "new" to tell
+        settings.LastVersionSeen = current;
+        try
+        {
+            settings.Save(Main.Paths);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            Log.Error("Saving the settings", ex);
+        }
+        if (updated && Config.NotesFor(SelfInstall.Current) is { Notes.Length: > 0 } entry)
+            await Main.AskAsync($"What's new in RotaHub {current}", entry.Notes, "Got it", cancel: "");
+    }
+
+    /// <summary>The website's RotaHub settings; on a failure the last ones stay in use.</summary>
+    private async Task LoadConfigAsync()
+    {
+        try
+        {
+            Config = await Main.RefreshConfigAsync();
+            Keys.Rebuild(); // keys of products the website just added
+        }
+        catch (ApiException ex) when (!ex.SignedOut)
+        {
+            Log.Info("RotaHub settings: " + ex.Message);
+        }
     }
 
     public async Task LoadLicencesAsync()
