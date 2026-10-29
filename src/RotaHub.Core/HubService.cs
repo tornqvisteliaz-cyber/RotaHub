@@ -109,12 +109,14 @@ public sealed class HubService
 
     /// <summary>
     /// Installs or updates to <paramref name="release"/>. Null when the download was something RotaHub
-    /// can't install by itself (it is then shown in Explorer).
+    /// can't install by itself (it is then shown in Explorer). Errors reach the caller as they are
+    /// (ProgramsOpenException asks to close the program); a continuation that only ran on success
+    /// turned every one of them into "A task was canceled".
     /// </summary>
-    public Task<InstallResult?> InstallAsync(HubRelease release, SiteProduct site, HubProduct product, IProgress<InstallProgress>? progress, CancellationToken ct) =>
+    public async Task<InstallResult?> InstallAsync(HubRelease release, SiteProduct site, HubProduct product, IProgress<InstallProgress>? progress, CancellationToken ct) =>
         release.IsDownload
-            ? InstallDownloadAsync(release, site, product, progress, ct)
-            : InstallPackageAsync(release, progress, ct).ContinueWith(t => (InstallResult?)t.Result, ct, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+            ? await InstallDownloadAsync(release, site, product, progress, ct).ConfigureAwait(false)
+            : await InstallPackageAsync(release, progress, ct).ConfigureAwait(false);
 
     private async Task<InstallResult> InstallPackageAsync(HubRelease release, IProgress<InstallProgress>? progress, CancellationToken ct)
     {
