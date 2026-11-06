@@ -29,7 +29,16 @@
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="MENU" Style="{StaticResource Kicker}" Foreground="{StaticResource Muted}" Margin="24,26,0,10" />
                 <StackPanel DockPanel.Dock="Top">
-                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE71D;" Content="Library" IsChecked="{Binding IsLibrary}" GroupName="nav" />
+                    <RadioButton Style="{StaticResource NavItem}" Tag="&#xE71D;" IsChecked="{Binding IsLibrary}" GroupName="nav">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Library" VerticalAlignment="Center" />
+                            <!-- How many installed add-ons have an update waiting. -->
+                            <Border Margin="10,0,0,0" Padding="7,1" CornerRadius="9" Background="{StaticResource Warn}" VerticalAlignment="Center"
+                                    Visibility="{Binding Updates, Converter={StaticResource Show}}">
+                                <TextBlock Text="{Binding Updates}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Navy}" />
+                            </Border>
+                        </StackPanel>
+                    </RadioButton>
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE192;" Content="Licence keys" IsChecked="{Binding IsKeys}" GroupName="nav" />
                     <RadioButton Style="{StaticResource NavItem}" Tag="&#xE713;" Content="Settings" IsChecked="{Binding IsSettings}" GroupName="nav" />
                 </StackPanel>

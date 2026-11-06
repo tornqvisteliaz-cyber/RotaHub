@@ -5,22 +5,44 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding Shell}">
         <StackPanel Margin="48,40,40,48">
             <!-- Admin → RotaHub → Look of the app → Library banner -->
-            <Border Height="190" Margin="0,0,0,32" ClipToBounds="True" Background="{StaticResource Bg2}"
+            <Border Height="140" Margin="0,0,0,28" ClipToBounds="True" Background="{StaticResource Bg2}"
                     Visibility="{Binding Main.LibraryBanner, Converter={StaticResource Show}}">
                 <Image Source="{Binding Main.LibraryBanner}" Stretch="UniformToFill" />
             </Border>
-            <Grid Margin="0,0,0,32">
-                <StackPanel>
+            <Grid Margin="0,0,28,32">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,24,0">
                     <TextBlock Text="{Binding FirstName, StringFormat='WELCOME, {0}', Converter={StaticResource Upper}}" Style="{StaticResource Kicker}" Margin="0,0,0,10" />
                     <TextBlock Text="{Binding Main.LibraryTitle}" Style="{StaticResource H1}" Margin="0,0,0,8" />
                     <TextBlock Style="{StaticResource Lead}" MaxWidth="620" HorizontalAlignment="Left" Text="{Binding Main.LibraryText}" />
                 </StackPanel>
-                <Button HorizontalAlignment="Right" VerticalAlignment="Bottom" Style="{StaticResource Sm}" Command="{Binding RefreshCommand}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
-                        <TextBlock Text="Refresh" />
-                    </StackPanel>
-                </Button>
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom">
+                    <!-- The simulator: which edition is installed, whether it runs, and Fly to start it. -->
+                    <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="18,14" Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel VerticalAlignment="Center" Margin="0,0,20,0">
+                                <TextBlock Text="{Binding SimTitle, Converter={StaticResource Upper}}" Style="{StaticResource Kicker}" Margin="0,0,0,5" />
+                                <TextBlock Text="{Binding SimStatus}" Foreground="{StaticResource Ink}" FontSize="14" FontWeight="Medium" />
+                            </StackPanel>
+                            <Button Style="{StaticResource SmPrimary}" Command="{Binding LaunchSimCommand}" VerticalAlignment="Center" MinWidth="96"
+                                    Visibility="{Binding HasSim, Converter={StaticResource Show}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE768;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                                    <TextBlock Text="Fly" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                    <Button HorizontalAlignment="Right" Style="{StaticResource Sm}" Command="{Binding RefreshCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icon}" FontSize="13" Margin="0,0,8,0" />
+                            <TextBlock Text="Refresh" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
 
             <ProgressBar IsIndeterminate="True" Visibility="{Binding Loading, Converter={StaticResource Show}}" Margin="0,0,0,24" />
@@ -58,7 +80,7 @@
                     Visibility="{Binding Converter={StaticResource Show}}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <Grid Height="300" ClipToBounds="True" Background="{StaticResource Navy}">
+                        <Grid Height="260" ClipToBounds="True" Background="{StaticResource Navy}">
                             <Image Source="{Binding Picture}" Stretch="UniformToFill" RenderTransformOrigin="0.5,0.5">
                                 <Image.RenderTransform>
                                     <ScaleTransform x:Name="zoom" />

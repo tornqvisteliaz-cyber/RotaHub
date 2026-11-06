@@ -99,6 +99,14 @@
                     </StackPanel>
                 </CheckBox>
             </Border>
+            <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="0,16">
+                <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding StartWithWindows}">
+                    <StackPanel>
+                        <TextBlock Text="Start with Windows" Foreground="{StaticResource Ink}" FontSize="15" />
+                        <TextBlock Text="RotaHub opens minimized when you sign in, so your add-ons are updated before you fly." Style="{StaticResource Small}" />
+                    </StackPanel>
+                </CheckBox>
+            </Border>
             <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,1" Padding="0,16" Margin="0,0,0,40">
                 <CheckBox Style="{StaticResource Toggle}" IsChecked="{Binding DesktopShortcuts}">
                     <StackPanel>

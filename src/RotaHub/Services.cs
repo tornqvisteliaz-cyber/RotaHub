@@ -107,6 +107,34 @@ public static class ImageCache
 
 public static class Os
 {
+    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunName = "RotaHub";
+
+    /// <summary>RotaHub starts minimized when Windows signs in (the per-user Run key; no admin rights).</summary>
+    public static bool StartWithWindows
+    {
+        get
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey);
+            return key?.GetValue(RunName) is string;
+        }
+        set
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey);
+                if (value)
+                    key.SetValue(RunName, $"\"{SelfInstall.CurrentExe}\" --minimized");
+                else
+                    key.DeleteValue(RunName, throwOnMissingValue: false);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+            {
+                Log.Error("Could not change Start with Windows", ex);
+            }
+        }
+    }
+
     public static void Open(string target)
     {
         try

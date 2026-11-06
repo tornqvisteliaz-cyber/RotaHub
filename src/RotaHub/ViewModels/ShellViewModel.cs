@@ -51,6 +51,45 @@ public sealed class ShellViewModel : Observable
         NoticeCommand = new Command(() => { if (Config.Notice is { Link.Length: > 0 } n) Os.Open(n.Link); return Task.CompletedTask; });
         HelpCommand = new Command(() => Os.Open(Config.HelpUrl.Length > 0 ? Config.HelpUrl : Main.Api.BaseUrl + "/support"));
         WhatsNewCommand = new Command(ShowUpdateNotesAsync);
+        LaunchSimCommand = new Command(LaunchSimAsync, () => CanLaunchSim);
+        _checkTimer.Tick += (_, _) => RefreshSim();
+        RefreshSim();
+    }
+
+    // ---- The simulator: which one is installed, whether it runs, and a button to start it. ----
+
+    private SimInstall? _sim;
+    private bool _simRunning;
+
+    public Command LaunchSimCommand { get; }
+    public bool HasSim => _sim != null;
+    public bool CanLaunchSim => _sim != null && !_simRunning;
+    public string SimTitle => _sim?.Title ?? "Microsoft Flight Simulator";
+    public string SimStatus => _sim == null ? "Not found on this PC"
+        : _simRunning ? $"{SimEdition} · Running" : $"{SimEdition} · Ready to fly";
+
+    // A Community folder chosen by hand says nothing about the store: take it from where the sim really is.
+    private string SimEdition => _sim?.Edition == "Chosen by you"
+        ? SimLocator.Detect(_sim.Sim).FirstOrDefault()?.Edition ?? "Steam"
+        : _sim?.Edition ?? "";
+
+    public void RefreshSim()
+    {
+        _sim = SimLocator.Find("msfs2024", Main.Settings) ?? SimLocator.Find("msfs2020", Main.Settings);
+        _simRunning = _sim != null && SimLocator.IsRunning(_sim.Sim);
+        Raise(nameof(HasSim), nameof(CanLaunchSim), nameof(SimTitle), nameof(SimStatus));
+        System.Windows.Input.CommandManager.InvalidateRequerySuggested();
+    }
+
+    private async Task LaunchSimAsync()
+    {
+        if (_sim == null)
+            return;
+        Os.Open(SimLocator.LaunchTarget(_sim.Sim, SimEdition));
+        Toast($"Starting {_sim.Title}…");
+        // The sim takes a while to show its process; look again once it has.
+        await Task.Delay(TimeSpan.FromSeconds(12));
+        RefreshSim();
     }
 
     public MainViewModel Main { get; }
@@ -213,6 +252,7 @@ public sealed class ShellViewModel : Observable
     /// <summary>RotaHub's window came back to the front.</summary>
     public void WindowActivated()
     {
+        RefreshSim();
         if (DateTime.UtcNow - _lastCheck > TimeSpan.FromMinutes(1))
             _ = CheckNowAsync();
     }

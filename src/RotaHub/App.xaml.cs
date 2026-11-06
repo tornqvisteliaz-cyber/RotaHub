@@ -78,6 +78,9 @@ public partial class App : Application
         var main = new MainViewModel(paths);
         var window = new MainWindow { DataContext = main };
         MainWindow = window;
+        // Started by Windows at sign-in (Settings → Start with Windows): stay out of the way.
+        if (args.Contains("--minimized"))
+            window.WindowState = WindowState.Minimized;
         window.Show();
         ListenForSecondStart(window);
         _ = main.StartAsync();

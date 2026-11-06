@@ -64,6 +64,16 @@ public sealed class SettingsViewModel : Observable
         }
     }
 
+    public bool StartWithWindows
+    {
+        get => Os.StartWithWindows;
+        set
+        {
+            Os.StartWithWindows = value;
+            Raise();
+        }
+    }
+
     public Command ChangeLibraryCommand { get; }
     public Command OpenLibraryCommand { get; }
     public Command CheckUpdatesCommand { get; }

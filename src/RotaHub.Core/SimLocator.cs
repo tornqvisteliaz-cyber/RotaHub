@@ -21,6 +21,18 @@ public static class SimLocator
 
     public static bool IsRunning(string sim) => Processes(sim).Any(name => Process.GetProcessesByName(name).Length > 0);
 
+    /// <summary>
+    /// What to open to start <paramref name="sim"/>: Steam's run link, or the Microsoft Store app's id.
+    /// An unknown edition (a folder chosen by hand) is treated as Steam.
+    /// </summary>
+    public static string LaunchTarget(string sim, string? edition)
+    {
+        var store = edition == "Microsoft Store";
+        if (sim == "msfs2020")
+            return store ? @"shell:AppsFolder\Microsoft.FlightSimulator_8wekyb3d8bbwe!App" : "steam://rungameid/1250410";
+        return store ? @"shell:AppsFolder\Microsoft.Limitless_8wekyb3d8bbwe!App" : "steam://rungameid/2537590";
+    }
+
     /// <summary>The Community folder for <paramref name="sim"/>: the user's choice first, then what the sim's own UserCfg.opt says.</summary>
     public static SimInstall? Find(string sim, HubSettings settings)
     {
