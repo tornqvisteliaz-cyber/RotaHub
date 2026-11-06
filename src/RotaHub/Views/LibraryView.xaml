@@ -112,7 +112,7 @@
                                             <TextBlock Text="{Binding PrimaryText}" />
                                         </StackPanel>
                                     </Button>
-                                    <TextBlock Text="{Binding StatusLine}" Foreground="{StaticResource HeroText}" FontSize="14" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                    <TextBlock Text="{Binding FeaturedLine}" Foreground="{StaticResource HeroText}" FontSize="14" VerticalAlignment="Center" Margin="18,0,0,0" />
                                 </StackPanel>
                                 <ProgressBar Width="360" HorizontalAlignment="Left" Margin="0,16,0,0" Value="{Binding Progress, Mode=OneWay}"
                                              IsIndeterminate="{Binding Indeterminate, Mode=OneWay}" Visibility="{Binding Busy, Converter={StaticResource Show}}" />

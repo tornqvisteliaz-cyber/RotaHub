@@ -119,6 +119,9 @@ public sealed class ProductViewModel : Observable
         : IsInstalled ? Tone.Ok
         : Site.Status switch { "coming_soon" => Tone.Info, "in_development" => Tone.Warn, "published" or "" => Tone.Ok, _ => Tone.Neutral };
 
+    /// <summary>The line beside the featured card's button: empty while it already says "Update to …", so it is not said twice.</summary>
+    public string FeaturedLine => !Busy && UpdateAvailable ? "" : StatusLine;
+
     /// <summary>One line for the sidebar: progress while working, otherwise the state.</summary>
     public string StatusLine => Busy ? (Indeterminate || Progress <= 0 ? Step : $"{Step} · {Progress:P0}")
         : UpdateAvailable ? $"Update to {_release!.Version.ToString(3)}"
@@ -193,7 +196,7 @@ public sealed class ProductViewModel : Observable
         private set
         {
             if (Set(ref _step, value))
-                Raise(nameof(StatusLine));
+                Raise(nameof(StatusLine), nameof(FeaturedLine));
         }
     }
 
@@ -209,7 +212,7 @@ public sealed class ProductViewModel : Observable
         private set
         {
             if (Set(ref _progress, value))
-                Raise(nameof(StatusLine));
+                Raise(nameof(StatusLine), nameof(FeaturedLine));
         }
     }
 
@@ -262,7 +265,7 @@ public sealed class ProductViewModel : Observable
         Raise(nameof(IsInstalled), nameof(ByRotaHub), nameof(CanUninstall), nameof(UpdateAvailable), nameof(NeedsRepair), nameof(Problems), nameof(Notes),
             nameof(Links), nameof(InstalledText), nameof(LatestText), nameof(Location), nameof(Badge), nameof(BadgeTone), nameof(CardVersion),
             nameof(PrimaryEnabled), nameof(PrimaryText), nameof(PrimaryIcon), nameof(AccountKey), nameof(LicenceWorksHere), nameof(LicenceTitle),
-            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog), nameof(StatusLine),
+            nameof(LicenceDetail), nameof(LicenceTone), nameof(ShowBuy), nameof(ReleaseNotes), nameof(HasChangelog), nameof(StatusLine), nameof(FeaturedLine),
             nameof(UpdateNeedsYou), nameof(UpdateVersion));
         _shell.UpdatesChanged();
         System.Windows.Input.CommandManager.InvalidateRequerySuggested();
