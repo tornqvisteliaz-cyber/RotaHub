@@ -35,6 +35,23 @@ public sealed class DownloadReleaseTests : IDisposable
     }
 
     [Fact]
+    public async Task A_product_with_its_own_release_never_falls_back_to_the_website_link()
+    {
+        // HeavyPro's website "download" is RotaHub itself. When GitHub can't be reached, the old code
+        // took that link as HeavyPro 1.0.0 and ran RotaHub as its installer.
+        var hub = new HubService(new HubPaths(_root), new HubSettings { LibraryDir = Path.Combine(_root, "Library") },
+            new RotaidemApi("https://rotaidem.invalid"), null);
+        var heavyPro = HubCatalog.HeavyPro with { ManifestUrl = "https://rotaidem.invalid/rotahub.jws" };
+        var (release, problem) = await hub.NewestReleaseAsync(Product("1.0.0", "https://rotaidem.com/files/RotaHub.exe"), heavyPro);
+        Assert.Null(release);
+        Assert.Contains("internet connection", problem);
+
+        // A website-only product (no signed release) still installs from its link.
+        var (own, _) = await hub.NewestReleaseAsync(Product("1.2.0"), heavyPro with { ManifestUrl = null });
+        Assert.True(own!.IsDownload);
+    }
+
+    [Fact]
     public void The_simulator_on_the_website_picks_the_Community_folder()
     {
         Assert.Equal("msfs2020", Product("1.0.0", simulator: "MSFS 2020").Sim);
