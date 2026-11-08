@@ -5,7 +5,12 @@ on:
     branches: [main]
     tags: ["v*"]
   pull_request:
+  # A release without a clone: Actions → Build RotaHub → Run workflow, with the version to ship.
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, like 0.2.4 (creates v0.2.4 on main)"
+        required: true
 
 jobs:
   build:
@@ -17,13 +22,18 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Version from the tag
+      - name: Version to release
         # A tag like v0.2.0 builds RotaHub 0.2.0; its self-update compares against this number.
-        if: startsWith(github.ref, 'refs/tags/v')
+        # A manual run takes the version from the form, so a release needs no clone and no tag push.
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release tags look like v0.2.0, not $tag." }
+          $raw = $env:INPUT_VERSION.Trim()
+          $tag = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME } else { "v" + ($raw -replace '^[vV]', '') }
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Release versions look like v0.2.0, not $tag." }
+          "RH_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "RH_VERSION=$($Matches[1])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Licence public key still matches rotaidem.com
         # RotaHub trusts only licence answers signed with this key. If the website's key changed,
@@ -51,23 +61,26 @@ jobs:
           name: RotaHub
           path: publish/RotaHub.exe
       - name: Sign the release manifest
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RH_TAG
           $url = "https://github.com/${{ github.repository }}/releases/download/$tag/RotaHub-package.zip"
           & packaging/New-HubManifest.ps1 -Product rotahub -Name RotaHub -Version $env:RH_VERSION `
             -Package publish/RotaHub-package.zip -Url $url -Out publish/rotahub.jws -AppExe RotaHub.exe -Processes RotaHub
       # RotaHub.exe on the Releases page is what people download; RotaHub-package.zip and
       # rotahub.jws are what installed copies update from (.../releases/latest/download/rotahub.jws).
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          gh release create $tag publish/RotaHub.exe publish/RotaHub-package.zip publish/rotahub.jws --title "RotaHub $env:RH_VERSION" --notes "RotaHub $env:RH_VERSION"
+          $tag = $env:RH_TAG
+          # A manual run creates the tag on main; a tag push already has it.
+          $target = @('--target', 'main')
+          if ($env:GITHUB_REF_TYPE -eq 'tag') { $target = @() }
+          gh release create $tag publish/RotaHub.exe publish/RotaHub-package.zip publish/rotahub.jws @target --title "RotaHub $env:RH_VERSION" --notes "RotaHub $env:RH_VERSION"
           if ($LASTEXITCODE -ne 0) { throw "Could not publish the release." }
