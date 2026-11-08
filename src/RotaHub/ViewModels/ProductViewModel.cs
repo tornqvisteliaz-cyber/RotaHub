@@ -108,7 +108,12 @@ public sealed class ProductViewModel : Observable
 
     public string LatestText => _release != null
         ? _release.Version.ToString(3) + (_release.Published.Length >= 10 ? " · " + _release.Published.Substring(0, 10) : "")
-        : _checkingRelease ? "Checking…" : Site.HasDownload ? "Set a version like 1.0.0 in the admin" : "Not published yet";
+        : _checkingRelease ? "Checking…"
+        // A version is only the admin's to set when it has no usable one; otherwise the page shows why
+        // no release was found, so a working download is never reported as "set a version".
+        : Site.HasDownload && HubRelease.ParseVersion(Site.Version) == null ? "Set a version like 1.0.0 in the admin"
+        : _releaseProblem.Length > 0 ? _releaseProblem
+        : Site.HasDownload ? "Rotaidem has not published a download for this yet" : "Not published yet";
 
     public string Location => _installed?.AppDir ?? "";
 
