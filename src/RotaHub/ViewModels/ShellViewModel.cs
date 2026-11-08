@@ -349,14 +349,17 @@ public sealed class ShellViewModel : Observable
         if (!quiet)
             LoadError = "";
         Raise(nameof(NothingToShow));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
+            // Started together: the library itself needs only the product list. The account's keys,
+            // the RotaHub settings and the signed release files are applied as they arrive, so one
+            // slow answer from rotaidem.com or GitHub cannot hold the whole page back.
             var productsTask = Main.Api.ProductsAsync();
             var licencesTask = LoadLicencesAsync();
             var configTask = LoadConfigAsync();
             var products = await productsTask;
-            await licencesTask;
-            await configTask;
+            Log.Info($"Library: products in {clock.ElapsedMilliseconds} ms");
             Offline = false;
             _ = ShowWhatsNewAfterUpdateAsync();
 
@@ -377,25 +380,20 @@ public sealed class ShellViewModel : Observable
                     vm.Update(site);
                 }
             }
-            // Hidden in Admin → RotaHub: gone from the library, unless it is on this PC (it can still be updated and uninstalled).
-            foreach (var hidden in Products.Where(vm => Config.For(vm.Site.Id)?.Hidden == true && !vm.IsInstalled && !vm.Busy).ToList())
-                Products.Remove(hidden);
-            // Installed first, then pinned ones, then the website's order.
-            var ordered = Products.OrderByDescending(p => p.IsInstalled).ThenByDescending(p => Config.For(p.Site.Id)?.Featured == true)
-                .ThenBy(p => visible.FindIndex(s => s.Id == p.Site.Id)).ToList();
-            for (var i = 0; i < ordered.Count; i++)
-            {
-                var at = Products.IndexOf(ordered[i]);
-                if (at != i)
-                    Products.Move(at, i);
-            }
-            Raise(nameof(Featured));
-            // The library is complete from the website's answer: don't keep it loading while each
-            // product's signed release file is checked (GitHub can be slow or blocked). The cards fill
-            // in their version as the checks come back; waiting here is only for what runs after.
+            Layout(visible);
             Loading = false;
             Raise(nameof(NothingToShow));
+
+            await Task.WhenAll(licencesTask, configTask);
+            Log.Info($"Library: keys and settings in {clock.ElapsedMilliseconds} ms");
+            // The settings can hide or pin products and give them their release file; the keys change
+            // the licence lines. Apply both now that the library is already on screen.
+            Layout(visible);
+            foreach (var vm in Products.ToList())
+                vm.Update(vm.Site);
+
             await Task.WhenAll(Products.Select(p => p.CheckReleaseAsync()));
+            Log.Info($"Library: ready in {clock.ElapsedMilliseconds} ms");
         }
         catch (ApiException ex) when (ex.SignedOut)
         {
@@ -414,6 +412,25 @@ public sealed class ShellViewModel : Observable
             Raise(nameof(NothingToShow), nameof(Featured));
         }
         _ = CheckSelfUpdateAsync(manual: false);
+    }
+
+    /// <summary>Hides what Admin → RotaHub hides, then puts installed and pinned products first.</summary>
+    private void Layout(List<SiteProduct> visible)
+    {
+        // Hidden in Admin → RotaHub: gone from the library, unless it is on this PC (it can still be
+        // updated and uninstalled).
+        foreach (var hidden in Products.Where(vm => Config.For(vm.Site.Id)?.Hidden == true && !vm.IsInstalled && !vm.Busy).ToList())
+            Products.Remove(hidden);
+        // Installed first, then pinned ones, then the website's order.
+        var ordered = Products.OrderByDescending(p => p.IsInstalled).ThenByDescending(p => Config.For(p.Site.Id)?.Featured == true)
+            .ThenBy(p => visible.FindIndex(s => s.Id == p.Site.Id)).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+        {
+            var at = Products.IndexOf(ordered[i]);
+            if (at != i)
+                Products.Move(at, i);
+        }
+        Raise(nameof(Featured));
     }
 
     /// <summary>The update bar's "What's new": the website's notes for that version, else the release's own.</summary>

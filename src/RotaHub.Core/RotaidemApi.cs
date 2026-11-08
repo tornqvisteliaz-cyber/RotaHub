@@ -104,8 +104,10 @@ public sealed class RotaidemApi
     {
         BaseUrl = baseUrl.TrimEnd('/');
         _http = handler == null ? new HttpClient() : new HttpClient(handler);
-        // The website runs as a CGI script on shared hosting; the first request after a quiet spell is slow.
-        _http.Timeout = TimeSpan.FromSeconds(60);
+        // The website runs as a CGI script on shared hosting; the first request after a quiet spell is
+        // slow. 30 s is still generous for a JSON call, and one that hangs must not hold the app for a
+        // whole minute.
+        _http.Timeout = TimeSpan.FromSeconds(30);
         _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent ?? "RotaHub (Windows)");
     }
 

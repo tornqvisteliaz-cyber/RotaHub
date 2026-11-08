@@ -80,6 +80,15 @@ public static class ImageCache
         }
         if (bytes == null)
             return null;
+        // Decoding a full-size photo takes a moment: do it off the UI thread so the library stays smooth.
+        var decoded = await Task.Run(() => Decode(bytes));
+        if (decoded != null)
+            Memory[url] = decoded;
+        return decoded;
+    }
+
+    private static ImageSource? Decode(byte[] bytes)
+    {
         try
         {
             var image = new BitmapImage();
@@ -89,7 +98,6 @@ public static class ImageCache
             image.DecodePixelWidth = 1600;
             image.EndInit();
             image.Freeze();
-            Memory[url] = image;
             return image;
         }
         catch (Exception ex) when (ex is NotSupportedException or FileFormatException or ArgumentException)
