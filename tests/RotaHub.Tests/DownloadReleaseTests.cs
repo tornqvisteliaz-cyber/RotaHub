@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http;
 using RotaHub.Core;
 using Xunit;
 
@@ -64,6 +66,61 @@ public sealed class DownloadReleaseTests : IDisposable
         Assert.True(release != null, problem);
         Assert.True(release!.IsDownload);
         Assert.Equal(new Version(0, 6, 0), release.Version);
+    }
+
+    [Fact]
+    public async Task A_product_with_has_download_and_no_link_still_comes_from_the_website()
+    {
+        // HeavyPro on rotaidem.com today: version 1.0.0, has_download true, download_url empty and no
+        // RotaHub block in Admin → Products. Its GitHub releases are private, so the signed release
+        // cannot be checked and the website's version and download button are the only source.
+        var hub = new HubService(new HubPaths(_root), new HubSettings { LibraryDir = Path.Combine(_root, "Library") },
+            new RotaidemApi("https://rotaidem.invalid"), null);
+        var heavyPro = HubCatalog.HeavyPro with { ManifestUrl = "https://rotaidem.invalid/rotahub.jws" };
+        var site = new SiteProduct("rotaidem-heavypro", "Rotaidem HeavyPro", "", "", "1.0.0", "coming_soon", "MSFS 2024", "", "",
+            "", Array.Empty<string>(), Array.Empty<string>(), Array.Empty<ChangelogEntry>(), true, false, "", DownloadUrl: "");
+        var (release, problem) = await hub.NewestReleaseAsync(site, heavyPro);
+        Assert.True(release != null, problem);
+        Assert.True(release!.IsDownload);
+        Assert.Equal(new Version(1, 0, 0), release.Version);
+        Assert.Equal("", release.PackageUrl);
+    }
+
+    private sealed class Stub : System.Net.Http.HttpMessageHandler
+    {
+        private readonly string _json;
+
+        public Stub(string json) => _json = json;
+
+        protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage request, CancellationToken ct) =>
+            Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(_json) });
+    }
+
+    [Fact]
+    public async Task The_websites_own_json_for_a_private_release_still_installs()
+    {
+        var json = JsonNode.Write(new Dictionary<string, object>
+        {
+            ["products"] = new object[]
+            {
+                new Dictionary<string, object>
+                {
+                    ["id"] = "rotaidem-heavypro", ["name"] = "Rotaidem HeavyPro", ["version"] = "1.0.0",
+                    ["status"] = "coming_soon", ["simulator"] = "MSFS 2024",
+                    ["has_download"] = true, ["download_url"] = "",
+                }
+            }
+        });
+        var api = new RotaidemApi("https://rotaidem.invalid", new Stub(json));
+        var site = Assert.Single(await api.ProductsAsync());
+        Assert.True(site.HasDownload);
+        Assert.Null(site.Release);
+
+        var hub = new HubService(new HubPaths(_root), new HubSettings { LibraryDir = Path.Combine(_root, "Library") }, api, null);
+        var (release, problem) = await hub.NewestReleaseAsync(site, HubCatalog.HeavyPro with { ManifestUrl = "https://rotaidem.invalid/rotahub.jws" });
+        Assert.True(release != null, problem);
+        Assert.Equal(new Version(1, 0, 0), release!.Version);
+        Assert.True(release.IsDownload);
     }
 
     [Fact]
