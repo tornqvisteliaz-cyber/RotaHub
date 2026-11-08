@@ -384,6 +384,13 @@ public sealed class ShellViewModel : Observable
             Loading = false;
             Raise(nameof(NothingToShow));
 
+            // The release files are checked before the account's keys and the settings: the product
+            // pages show their version from this, and a slow /api/account/licenses must not leave
+            // them saying "Checking…" (or worse) for half a minute.
+            var manifests = Products.ToDictionary(p => p.Site.Id, p => p.Hub.ManifestUrl);
+            await Task.WhenAll(Products.Select(p => p.CheckReleaseAsync()));
+            Log.Info($"Library: releases in {clock.ElapsedMilliseconds} ms");
+
             await Task.WhenAll(licencesTask, configTask);
             Log.Info($"Library: keys and settings in {clock.ElapsedMilliseconds} ms");
             // The settings can hide or pin products and give them their release file; the keys change
@@ -392,7 +399,10 @@ public sealed class ShellViewModel : Observable
             foreach (var vm in Products.ToList())
                 vm.Update(vm.Site);
 
-            await Task.WhenAll(Products.Select(p => p.CheckReleaseAsync()));
+            // Admin → RotaHub can point a product at a different release file: look at those again.
+            var moved = Products.Where(p => !manifests.TryGetValue(p.Site.Id, out var before) || before != p.Hub.ManifestUrl).ToList();
+            if (moved.Count > 0)
+                await Task.WhenAll(moved.Select(p => p.CheckReleaseAsync()));
             Log.Info($"Library: ready in {clock.ElapsedMilliseconds} ms");
         }
         catch (ApiException ex) when (ex.SignedOut)

@@ -24,6 +24,7 @@ public sealed class ProductViewModel : Observable
     private double _progress;
     private bool _indeterminate;
     private bool _checkingRelease;
+    private bool _releaseChecked;
     private bool _galleryLoaded;
 
     public ProductViewModel(ShellViewModel shell, SiteProduct site)
@@ -108,7 +109,7 @@ public sealed class ProductViewModel : Observable
 
     public string LatestText => _release != null
         ? _release.Version.ToString(3) + (_release.Published.Length >= 10 ? " · " + _release.Published.Substring(0, 10) : "")
-        : _checkingRelease ? "Checking…"
+        : _checkingRelease || !_releaseChecked ? "Checking…"
         // A version is only the admin's to set when it has no usable one; otherwise the page shows why
         // no release was found, so a working download is never reported as "set a version".
         : Site.HasDownload && HubRelease.ParseVersion(Site.Version) == null ? "Set a version like 1.0.0 in the admin"
@@ -263,9 +264,16 @@ public sealed class ProductViewModel : Observable
             if (release == null && problem.Length > 0)
                 Log.Info($"{Hub.Id} release: {problem}");
         }
+        catch (Exception ex)
+        {
+            // One product whose release cannot be read must not stop the rest of the library.
+            Log.Error(Hub.Id + " release", ex);
+            _releaseProblem = "Could not check for releases: " + ex.Message;
+        }
         finally
         {
             _checkingRelease = false;
+            _releaseChecked = true;
             RaiseState();
         }
     }
