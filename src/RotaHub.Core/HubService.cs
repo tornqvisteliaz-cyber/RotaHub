@@ -40,7 +40,10 @@ public sealed class HubService
     public async Task<(HubRelease? Release, string Problem)> NewestReleaseAsync(SiteProduct site, HubProduct product, CancellationToken ct = default)
     {
         var (signed, problem) = await LatestReleaseAsync(product, ct).ConfigureAwait(false);
-        var best = new[] { signed, site.Release, site.DownloadRelease }
+        // A product with its own signed release (HeavyPro) never installs from the website's download link:
+        // that link hands out RotaHub itself, so a failed GitHub check used to "install" RotaHub instead.
+        var download = product.ManifestUrl == null ? site.DownloadRelease : null;
+        var best = new[] { signed, site.Release, download }
             .Where(r => r != null)
             .OrderByDescending(r => r!.Version).ThenByDescending(r => r!.Rank)
             .FirstOrDefault();

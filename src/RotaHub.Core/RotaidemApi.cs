@@ -188,6 +188,10 @@ public sealed class RotaidemApi
     public async Task<string> DownloadUrlAsync(string productId, CancellationToken ct = default)
     {
         var data = await SendAsync(HttpMethod.Post, "/api/download/" + Uri.EscapeDataString(productId), new Dictionary<string, object>(), ct).ConfigureAwait(false);
+        // The website marks a product whose download is RotaHub itself; running that would install nothing.
+        if (data["hub"].Bool())
+            throw new InvalidOperationException("rotaidem.com offers RotaHub as this product's download, so there is nothing to install from it. "
+                + "Check your internet connection and press Refresh so RotaHub can reach the product's own release.");
         return Absolute(data["url"].Str());
     }
 
