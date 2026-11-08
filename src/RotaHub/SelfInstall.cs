@@ -29,10 +29,32 @@ public static class SelfInstall
     {
         var target = InstalledExe(paths);
         Directory.CreateDirectory(paths.App);
+        // Never replace a newer install with an older download: starting an old RotaHub.exe from the
+        // Downloads folder used to put that version back over the one that had already updated.
+        if (VersionOf(target) is { } installed && installed > Current)
+        {
+            Log.Info($"Kept RotaHub {installed}: the copy being started ({Current}) is older");
+            return target;
+        }
         File.Copy(CurrentExe, target, overwrite: true);
         Register(paths);
         Log.Info($"Installed RotaHub {Current} to {target}");
         return target;
+    }
+
+    /// <summary>The version in an exe's metadata; null when it is not there or cannot be read.</summary>
+    private static Version? VersionOf(string exe)
+    {
+        try
+        {
+            return File.Exists(exe)
+                ? HubRelease.Normalize(System.Reflection.AssemblyName.GetAssemblyName(exe).Version ?? new Version(0, 0, 0))
+                : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or BadImageFormatException or ArgumentException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Shortcuts and the Apps list entry; also refreshes the version shown there after an update.</summary>
