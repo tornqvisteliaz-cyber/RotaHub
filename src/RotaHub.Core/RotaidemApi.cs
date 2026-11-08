@@ -17,11 +17,19 @@ public sealed record SiteProduct(
 {
     /// <summary>
     /// The download link and version set in Admin → Products, as a release RotaHub can install and update
-    /// (an installer it runs, or a zip it unpacks). Null without a download or a usable version.
+    /// (an installer it runs, or a zip it unpacks). Null without a download or a usable version, and for
+    /// a download that is RotaHub itself (some products' "download" on the website is RotaHub's installer).
     /// </summary>
-    public HubRelease? DownloadRelease => HasDownload && HubRelease.ParseVersion(Version) is { } version
+    public HubRelease? DownloadRelease => HasDownload && HubRelease.ParseVersion(Version) is { } version && !IsRotaHubDownload(DownloadUrl)
         ? new HubRelease(Id, Name, version, "", DownloadUrl, "", 0, null, null, null, Array.Empty<string>(), Array.Empty<CommunityPart>(), "", "download")
         : null;
+
+    /// <summary>rotaidem.com's download can be RotaHub itself; that is never a product's installer.</summary>
+    public static bool IsRotaHubDownload(string url)
+    {
+        var path = Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.LocalPath : url;
+        return Path.GetFileName(path).StartsWith("rotahub", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>"msfs2020" when the website lists the product for MSFS 2020, else "msfs2024".</summary>
     public string Sim => Simulator.Contains("2020") ? "msfs2020" : "msfs2024";

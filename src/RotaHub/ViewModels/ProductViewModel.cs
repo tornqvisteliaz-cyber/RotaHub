@@ -24,6 +24,7 @@ public sealed class ProductViewModel : Observable
     private double _progress;
     private bool _indeterminate;
     private bool _checkingRelease;
+    private bool _galleryLoaded;
 
     public ProductViewModel(ShellViewModel shell, SiteProduct site)
     {
@@ -230,6 +231,10 @@ public sealed class ProductViewModel : Observable
         Raise(nameof(Site), nameof(Name), nameof(Tagline), nameof(Kicker), nameof(Description), nameof(Features), nameof(Changelog), nameof(Price));
         Refresh();
         _ = LoadPictureAsync();
+        // Its pictures may have changed on the website: reload them for the page already open.
+        _galleryLoaded = false;
+        if (ReferenceEquals(_shell.Page, this))
+            _ = LoadGalleryAsync();
     }
 
     /// <summary>Re-reads what is on this PC (install record, Community links, saved licence).</summary>
@@ -276,13 +281,21 @@ public sealed class ProductViewModel : Observable
         // Admin → RotaHub can give the product its own picture in the app; else the website's, else the default.
         var url = HubCatalog.Config.For(Site.Id)?.Image is { Length: > 0 } own ? own : Site.Picture;
         Picture = await ImageCache.GetAsync(url) ?? DefaultPicture(_shell, Site.Id);
+    }
+
+    /// <summary>
+    /// The website's pictures for the strip under the hero. They are fetched when the product's page is
+    /// opened, not for every product when the library loads: the cards need only one picture each.
+    /// </summary>
+    public async Task LoadGalleryAsync()
+    {
+        if (_galleryLoaded)
+            return;
+        _galleryLoaded = true;
         var urls = Site.Images.Count > 0 ? Site.Images : Site.ImageUrl.Length > 0 ? new[] { Site.ImageUrl } : Array.Empty<string>();
-        var pictures = new List<ImageSource>();
-        foreach (var image in urls.Distinct())
-        {
-            if (await ImageCache.GetAsync(image) is { } picture)
-                pictures.Add(picture);
-        }
+        var pictures = (await Task.WhenAll(urls.Distinct().Select(ImageCache.GetAsync))).Where(p => p != null).Select(p => p!).ToList();
+        if (pictures.Count == 0 && urls.Count > 0)
+            _galleryLoaded = false; // offline: try again when the page is opened next
         Gallery.Clear();
         if (pictures.Count > 1)
         {

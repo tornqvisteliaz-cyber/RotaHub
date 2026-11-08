@@ -23,7 +23,8 @@ uninstall them, and manage your licence keys.
 - **Installs from signed releases** too. Each product's newest release is described by `rotahub.jws`,
   signed with the Rotaidem release key (the same key as HeavyPro's `update.jws`). RotaHub checks the
   signature and the package's SHA-256 before anything is unpacked. Products without a RotaHub release
-  fall back to the download the website offers (their own installer).
+  — or whose signed releases cannot be checked (e.g. a private GitHub repository) — fall back to the
+  download and version the website offers (their own installer; never RotaHub itself).
 - **Community folder links.** Packages are unpacked into a library folder (Settings) and appear in the
   simulator's Community folder through NTFS junctions: no administrator rights, any local drive,
   and an update just moves the link. RotaHub only replaces links it made, links into its library, or

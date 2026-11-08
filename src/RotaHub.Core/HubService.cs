@@ -40,9 +40,12 @@ public sealed class HubService
     public async Task<(HubRelease? Release, string Problem)> NewestReleaseAsync(SiteProduct site, HubProduct product, CancellationToken ct = default)
     {
         var (signed, problem) = await LatestReleaseAsync(product, ct).ConfigureAwait(false);
-        // A product with its own signed release (HeavyPro) never installs from the website's download link:
-        // that link hands out RotaHub itself, so a failed GitHub check used to "install" RotaHub instead.
-        var download = product.ManifestUrl == null ? site.DownloadRelease : null;
+        // A product with its own signed release (HeavyPro) normally installs from it. When that release
+        // cannot be checked at all (nothing published yet, or its GitHub releases are private or
+        // unreachable), the website is the source: the download link and version set in Admin → Products.
+        // A download that is RotaHub itself is not one (SiteProduct.DownloadRelease skips it, and
+        // DownloadUrlAsync checks the website's "hub" flag), so it can never be installed as the product.
+        var download = product.ManifestUrl == null || signed == null ? site.DownloadRelease : null;
         var best = new[] { signed, site.Release, download }
             .Where(r => r != null)
             .OrderByDescending(r => r!.Version).ThenByDescending(r => r!.Rank)
@@ -60,7 +63,9 @@ public sealed class HubService
         try
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            timeout.CancelAfter(TimeSpan.FromSeconds(30));
+            // A few kilobytes: 10 s is plenty even on a slow line, and a GitHub that cannot be reached
+            // must not leave the product saying "Checking…" for half a minute on every refresh.
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
             using var response = await _http.GetAsync(product.ManifestUrl, timeout.Token).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return (null, "No RotaHub release has been published for this product yet.");

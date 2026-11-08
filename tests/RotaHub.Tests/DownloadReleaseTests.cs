@@ -35,20 +35,35 @@ public sealed class DownloadReleaseTests : IDisposable
     }
 
     [Fact]
-    public async Task A_product_with_its_own_release_never_falls_back_to_the_website_link()
+    public async Task A_download_that_is_RotaHub_itself_is_never_a_product_release()
     {
-        // HeavyPro's website "download" is RotaHub itself. When GitHub can't be reached, the old code
-        // took that link as HeavyPro 1.0.0 and ran RotaHub as its installer.
+        // HeavyPro's website "download" can be RotaHub itself. When GitHub can't be reached, the old
+        // code took that link as HeavyPro 1.0.0 and ran RotaHub as its installer.
         var hub = new HubService(new HubPaths(_root), new HubSettings { LibraryDir = Path.Combine(_root, "Library") },
             new RotaidemApi("https://rotaidem.invalid"), null);
         var heavyPro = HubCatalog.HeavyPro with { ManifestUrl = "https://rotaidem.invalid/rotahub.jws" };
         var (release, problem) = await hub.NewestReleaseAsync(Product("1.0.0", "https://rotaidem.com/files/RotaHub.exe"), heavyPro);
         Assert.Null(release);
         Assert.Contains("internet connection", problem);
+        Assert.Null(Product("1.0.0", "https://rotaidem.com/files/RotaHub.exe").DownloadRelease);
 
         // A website-only product (no signed release) still installs from its link.
         var (own, _) = await hub.NewestReleaseAsync(Product("1.2.0"), heavyPro with { ManifestUrl = null });
         Assert.True(own!.IsDownload);
+    }
+
+    [Fact]
+    public async Task A_private_signed_release_falls_back_to_the_websites_download()
+    {
+        // The HeavyPro repo is private: its rotahub.jws cannot be read (GitHub answers 404, or the
+        // check fails). RotaHub then installs the download and version set in Admin → Products.
+        var hub = new HubService(new HubPaths(_root), new HubSettings { LibraryDir = Path.Combine(_root, "Library") },
+            new RotaidemApi("https://rotaidem.invalid"), null);
+        var heavyPro = HubCatalog.HeavyPro with { ManifestUrl = "https://rotaidem.invalid/rotahub.jws" };
+        var (release, problem) = await hub.NewestReleaseAsync(Product("0.6.0", "https://rotaidem.com/files/HeavyProSetup.exe"), heavyPro);
+        Assert.True(release != null, problem);
+        Assert.True(release!.IsDownload);
+        Assert.Equal(new Version(0, 6, 0), release.Version);
     }
 
     [Fact]

@@ -322,6 +322,7 @@ public sealed class ShellViewModel : Observable
         _section = "library";
         product.Refresh();
         Page = product;
+        _ = product.LoadGalleryAsync(); // the strip of pictures, only for the page being shown
         Raise(nameof(IsLibrary), nameof(IsKeys), nameof(IsSettings));
     }
 
@@ -389,6 +390,11 @@ public sealed class ShellViewModel : Observable
                     Products.Move(at, i);
             }
             Raise(nameof(Featured));
+            // The library is complete from the website's answer: don't keep it loading while each
+            // product's signed release file is checked (GitHub can be slow or blocked). The cards fill
+            // in their version as the checks come back; waiting here is only for what runs after.
+            Loading = false;
+            Raise(nameof(NothingToShow));
             await Task.WhenAll(Products.Select(p => p.CheckReleaseAsync()));
         }
         catch (ApiException ex) when (ex.SignedOut)

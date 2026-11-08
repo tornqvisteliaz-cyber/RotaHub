@@ -19,6 +19,9 @@ public partial class App : Application
     {
         base.OnStartup(e);
         System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+        // Products, licences, settings and pictures are fetched at the same time; the .NET Framework
+        // allows only two connections per host by default, so the rest queue behind each other.
+        System.Net.ServicePointManager.DefaultConnectionLimit = 12;
         var paths = new HubPaths();
         Directory.CreateDirectory(paths.Root);
         Log.File = paths.Log;
